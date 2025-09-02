@@ -104,7 +104,6 @@ export default function ThreeScene({ selectedTool, onGeometryCreate, onToolSelec
       };
       
       localStorage.setItem('mercurad_scene', JSON.stringify(sceneData));
-      console.log('Scene saved to localStorage');
     } catch (error) {
       console.error('Failed to save scene:', error);
     }
@@ -116,7 +115,6 @@ export default function ThreeScene({ selectedTool, onGeometryCreate, onToolSelec
       if (!savedData) return null;
       
       const sceneData = JSON.parse(savedData);
-      console.log('Loading scene from localStorage:', sceneData);
       return sceneData;
     } catch (error) {
       console.error('Failed to load scene:', error);
@@ -208,8 +206,7 @@ export default function ThreeScene({ selectedTool, onGeometryCreate, onToolSelec
       geometriesRef.current.push(mesh);
     });
     
-    console.log(`Restored ${savedGeometries.length} geometries`);
-  }, [materialMode, viewMode]);
+      }, [materialMode, viewMode]);
 
   const restoreSceneState = useCallback((sceneData) => {
     if (!sceneData) return;
@@ -277,13 +274,11 @@ export default function ThreeScene({ selectedTool, onGeometryCreate, onToolSelec
       homeViewState.current = sceneData.homeView;
     }
     
-    console.log('Scene state restored successfully');
   }, [restoreGeometries]);
 
   const clearSavedScene = useCallback(() => {
     try {
       localStorage.removeItem('mercurad_scene');
-      console.log('Saved scene cleared');
     } catch (error) {
       console.error('Failed to clear saved scene:', error);
     }
@@ -384,8 +379,7 @@ export default function ThreeScene({ selectedTool, onGeometryCreate, onToolSelec
     }, 200);
     
     const intensityLevel = intensity > 0.7 ? "HARD" : intensity > 0.3 ? "MEDIUM" : "SOFT";
-    console.log(`🔥 ${intensityLevel} collision between ${meshA.userData.type} and ${meshB.userData.type} (intensity: ${intensity.toFixed(2)})`);
-  };
+      };
 
   // Create impact effect at collision point
   const createImpactEffect = (position, intensity = 0.5) => {
@@ -561,8 +555,7 @@ export default function ThreeScene({ selectedTool, onGeometryCreate, onToolSelec
       // Auto-save scene after creating geometry
   saveSceneToLocalStorage();
 
-  console.log(`Created ${geometryType} at position:`, randomPosition);
-
+  
   return mesh; // Return the created mesh
 }, [viewMode, materialMode, showSolidAngleLines, saveSceneToLocalStorage]);
 
@@ -576,8 +569,7 @@ const performCSGOperation = useCallback((operation, objectA, objectB) => {
   // Save history state BEFORE CSG operation
   saveToHistory();
 
-  console.log(`Performing CSG ${operation} on:`, objectA.userData, objectB.userData);
-
+  
   // Create a simple combined geometry based on operation type
   let resultGeometry;
   let resultMaterial;
@@ -670,8 +662,7 @@ const performCSGOperation = useCallback((operation, objectA, objectB) => {
     addSolidAngleLines();
   }
 
-  console.log(`CSG ${operation} completed. Created:`, resultMesh.userData);
-  saveSceneToLocalStorage();
+    saveSceneToLocalStorage();
   
   return resultMesh;
 }, [showSolidAngleLines, saveSceneToLocalStorage]);
@@ -730,15 +721,13 @@ const saveToHistory = useCallback(() => {
     historyIndex.current--;
   }
 
-  console.log(`History saved. Stack size: ${historyStack.current.length}, Current index: ${historyIndex.current}`);
-}, [showMesh, showCutPlane, showSolidAngleLines, materialMode, viewMode, saveSceneToLocalStorage]);
+  }, [showMesh, showCutPlane, showSolidAngleLines, materialMode, viewMode, saveSceneToLocalStorage]);
 
 const restoreFromHistory = useCallback((snapshot) => {
   if (!snapshot) return;
   
   isRestoringHistory.current = true;
-  console.log('Restoring from history:', snapshot.timestamp);
-
+  
   try {
     // Clear current geometries
     geometriesRef.current.forEach(mesh => {
@@ -852,8 +841,7 @@ const restoreFromHistory = useCallback((snapshot) => {
       hideSolidAngleLines();
     }
 
-    console.log(`Restored ${snapshot.geometries.length} geometries from history`);
-    
+        
   } catch (error) {
     console.error('Error restoring from history:', error);
   } finally {
@@ -866,8 +854,7 @@ const undo = useCallback(() => {
     historyIndex.current--;
     const snapshot = historyStack.current[historyIndex.current];
     restoreFromHistory(snapshot);
-    console.log(`Undo: Restored to index ${historyIndex.current}`);
-    
+        
     // Visual feedback
     if (rendererRef.current) {
       const originalClearColor = rendererRef.current.getClearColor().getHex();
@@ -877,8 +864,7 @@ const undo = useCallback(() => {
       }, 150);
     }
   } else {
-    console.log('Nothing to undo');
-  }
+      }
 }, [restoreFromHistory]);
 
 const redo = useCallback(() => {
@@ -886,8 +872,7 @@ const redo = useCallback(() => {
     historyIndex.current++;
     const snapshot = historyStack.current[historyIndex.current];
     restoreFromHistory(snapshot);
-    console.log(`Redo: Restored to index ${historyIndex.current}`);
-    
+        
     // Visual feedback
     if (rendererRef.current) {
       const originalClearColor = rendererRef.current.getClearColor().getHex();
@@ -897,8 +882,7 @@ const redo = useCallback(() => {
       }, 150);
     }
   } else {
-    console.log('Nothing to redo');
-  }
+      }
 }, [restoreFromHistory]);
 
 // Volume Reduction Function
@@ -911,8 +895,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
   // Save history state BEFORE volume reduction
   saveToHistory();
 
-  console.log('Reducing volume of:', targetMesh.userData, 'at point:', reductionPoint);
-
+  
   // Create a smaller geometry to represent the reduced volume
   let reducedGeometry;
   let reducedMaterial;
@@ -1015,8 +998,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
     addSolidAngleLines();
   }
 
-  console.log('Volume reduction completed. New volume:', reducedMesh.userData);
-  saveSceneToLocalStorage();
+    saveSceneToLocalStorage();
   
   return reducedMesh;
 }, [showSolidAngleLines, saveSceneToLocalStorage]);
@@ -1091,8 +1073,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
 
     setCurrentAxis(axis.toUpperCase());
     animateCameraTo(newPosition, center);
-    console.log(`Camera set to view along ${axis.toUpperCase()} axis`);
-  }, [animateCameraTo]);
+      }, [animateCameraTo]);
 
   // Change view mode for all objects
   const changeViewMode = useCallback((mode) => {
@@ -1131,8 +1112,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
       mesh.material.needsUpdate = true;
     });
     
-    console.log(`View mode changed to: ${mode}`);
-  }, []);
+      }, []);
 
   // Change material mode for all objects
   const changeMaterialMode = useCallback((mode) => {
@@ -1180,8 +1160,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
       mesh.material.needsUpdate = true;
     });
     
-    console.log(`Material mode changed to: ${mode}`);
-  }, []);
+      }, []);
 
   // Zoom control function
   const setZoomLevel = useCallback((zoomPercent) => {
@@ -1224,8 +1203,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
       camera.updateProjectionMatrix();
     }
     
-    console.log(`Zoom set to: ${zoomPercent}%`);
-  }, []);
+      }, []);
 
   // Expose functions to parent
   useEffect(() => {
@@ -1262,8 +1240,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
     sceneGroupRef.current.rotation.y = horizontalRad; // Horizontal rotation around Y-axis
     sceneGroupRef.current.rotation.x = verticalRad;   // Vertical rotation around X-axis
     
-    console.log(`Scene rotation set to: H:${horizontal}°, V:${vertical}°`);
-  }, []);
+      }, []);
 
   // View menu action handlers
   const toggleMesh = useCallback(() => {
@@ -1272,8 +1249,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
       geometriesRef.current.forEach(mesh => {
         mesh.visible = newValue;
       });
-      console.log(`Mesh visibility: ${newValue ? 'shown' : 'hidden'}`);
-      return newValue;
+            return newValue;
     });
   }, []);
 
@@ -1285,8 +1261,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
         } else {
         removeCutPlane();
       }
-      console.log(`Cut plane: ${newValue ? 'shown' : 'hidden'}`);
-      return newValue;
+            return newValue;
     });
   }, []);
 
@@ -1308,8 +1283,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
     sceneRef.current.add(cutPlane);
     cutPlaneRef.current = cutPlane;
     
-    console.log('Cut plane created');
-  }, []);
+      }, []);
 
   const removeCutPlane = useCallback(() => {
     if (cutPlaneRef.current && sceneRef.current) {
@@ -1317,8 +1291,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
       if (cutPlaneRef.current.geometry) cutPlaneRef.current.geometry.dispose();
       if (cutPlaneRef.current.material) cutPlaneRef.current.material.dispose();
       cutPlaneRef.current = null;
-      console.log('Cut plane removed');
-    }
+          }
   }, []);
 
   const hideSolidAngleLines = useCallback(() => {
@@ -1331,8 +1304,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
       }
     });
     solidAngleLinesRef.current = [];
-    console.log('Solid angle lines hidden');
-  }, []);
+      }, []);
 
   const addSolidAngleLines = useCallback(() => {
     if (!sceneRef.current) return;
@@ -1368,8 +1340,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
     });
     
     solidAngleLinesRef.current = lines;
-    console.log(`Added ${lines.length} solid angle lines`);
-  }, [hideSolidAngleLines]);
+      }, [hideSolidAngleLines]);
 
   const normalView = useCallback(() => {
     // Reset all view settings to normal/default
@@ -1391,8 +1362,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
     // Reset camera to default position
     animateCameraTo(new THREE.Vector3(5, 5, 5), new THREE.Vector3(0, 0, 0));
     
-    console.log('View reset to normal');
-  }, [removeCutPlane, hideSolidAngleLines, animateCameraTo]);
+      }, [removeCutPlane, hideSolidAngleLines, animateCameraTo]);
 
   const handleViewMenuAction = useCallback((action) => {
     switch (action) {
@@ -1412,8 +1382,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
         normalView();
         break;
       default:
-        console.log(`Unknown view menu action: ${action}`);
-    }
+            }
   }, [toggleMesh, toggleCutPlane, hideSolidAngleLines, addSolidAngleLines, normalView]);
 
   useEffect(() => {
@@ -1545,8 +1514,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
     // Initialize history with empty scene state
     setTimeout(() => {
       saveToHistory();
-      console.log('Initial history state saved');
-    }, 500); // Wait for scene to fully initialize
+          }, 500); // Wait for scene to fully initialize
 
     const deselect = () => {
       if (selectedGeometryRef.current) {
@@ -1563,8 +1531,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
       
       if (!isCSGTool && tool !== 'select' && tool !== 'pan' && tool !== 'target') return;
       
-      console.log('Pointer down with tool:', tool);
-      
+            
       const rect = renderer.domElement.getBoundingClientRect();
       const pointer = new THREE.Vector2();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1579,8 +1546,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
         
         // Handle Shift+Click for volume reduction
         if (event.shiftKey && (tool === 'select' || tool === 'pan')) {
-          console.log('Shift+Click detected - reducing volume');
-          
+                    
           // Calculate the click point in world coordinates
           const clickPoint = intersects[0].point;
           
@@ -1616,18 +1582,15 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
             object.material.color.set(0xffff00); // Yellow for CSG selection
             
             const selectionCount = csgSelectedObjects.current.length;
-            console.log(`CSG: Selected object ${selectionCount}/2 (${object.userData.type}):`, object.userData.volumeName || object.userData.type);
-            
+                        
             // Show progress message
             if (selectionCount === 1) {
-              console.log(`CSG ${csgOperation.current.toUpperCase()}: Select one more object to perform operation`);
-            }
+                          }
             
             // If we have two objects, perform the operation
             if (selectionCount === 2) {
               const [objectA, objectB] = csgSelectedObjects.current;
-              console.log(`Performing CSG ${csgOperation.current.toUpperCase()} operation: ${objectA.userData.volumeName || objectA.userData.type} ${csgOperation.current} ${objectB.userData.volumeName || objectB.userData.type}`);
-              
+                            
               const result = performCSGOperation(csgOperation.current, objectA, objectB);
               
               if (result) {
@@ -1644,12 +1607,10 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
                 transformControlsRef.current.visible = true;
                 onSelectionChange && onSelectionChange(true, result);
                 
-                console.log(`CSG operation completed! Created: ${result.userData.volumeName}`);
-              }
+                              }
             }
           } else {
-            console.log(`Object already selected for CSG operation`);
-          }
+                      }
           return; // Don't do regular selection in CSG mode
         }
         
@@ -1664,8 +1625,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
             object.material.color.set(0x00ff00);
             
             // Attach transform controls with debug logging
-            console.log('Attaching TransformControls to object:', object);
-            transformControlsRef.current.attach(object);
+                        transformControlsRef.current.attach(object);
             transformControlsRef.current.visible = true;
             
             onSelectionChange && onSelectionChange(true, object);
@@ -1735,8 +1695,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
                 // Auto-save scene after deleting geometry
                 saveSceneToLocalStorage();
                 
-                console.log('Object deleted');
-              }
+                              }
             }
             break;
           case 'g':
@@ -1798,8 +1757,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
       // Handle Ctrl+Alt key combination for rotation in pan mode
       if (event.ctrlKey && event.altKey && selectedToolRef.current === 'pan' && transformControlsRef.current.object) {
         transformControlsRef.current.setMode('rotate');
-        console.log('Switched to rotate mode (Ctrl+Alt)');
-    }
+            }
     };
     
     const handleKeyUp = (event) => {
@@ -1815,8 +1773,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
       // Switch back to translate when either Ctrl or Alt is released
       if ((event.key === 'Control' || event.key === 'Alt') && selectedToolRef.current === 'pan' && transformControlsRef.current.object) {
         transformControlsRef.current.setMode('translate');
-        console.log('Switched back to translate mode');
-    }
+            }
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -1916,8 +1873,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
           }, 200);
         }
         
-        console.log('Scene restored from localStorage');
-      }
+              }
     }, 100);
 
     // Set up auto-save interval (every 30 seconds)
@@ -1984,8 +1940,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
         transformControls.setMode('translate'); // Select tool uses translate
       }
       
-      console.log('TransformControls enabled for tool:', selectedTool);
-    } else {
+          } else {
       transformControls.enabled = false;
       // Don't hide the gizmo, just disable interaction
     }
@@ -1997,8 +1952,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
           target: orbitControlsRef.current.target.clone(),
           perspective: isPerspective,
         };
-        console.log('Home view saved.');
-        // Reset tool selection after action
+                // Reset tool selection after action
         setTimeout(() => onToolSelect && onToolSelect('select'), 0);
         break;
       case 'home':
@@ -2008,8 +1962,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
           }
           animateCameraTo(homeViewState.current.position, homeViewState.current.target);
         } else {
-          console.log('No home view saved.');
-        }
+                  }
         // Reset tool selection after action
         setTimeout(() => onToolSelect && onToolSelect('select'), 0);
         break;
@@ -2020,8 +1973,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
         break;
       case 'camera':
         const newMode = !isPerspective;
-        console.log(`Switching camera from ${isPerspective ? 'Perspective' : 'Orthographic'} to ${newMode ? 'Perspective' : 'Orthographic'}`);
-        setIsPerspective(newMode);
+                setIsPerspective(newMode);
         // Reset tool selection after action
         setTimeout(() => onToolSelect && onToolSelect('select'), 0);
         break;
@@ -2052,25 +2004,19 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
           'split': 'SPLIT - Divide volume with cutting plane'
         };
         
-        console.log(`🔧 Started CSG ${operationNames[operation]}`);
-        console.log(`👆 Click on the FIRST object, then click on the SECOND object`);
-        break;
+                        break;
     }
   }, [selectedTool, animateCameraTo, zoomToFit, isPerspective, onToolSelect]);
 
   useEffect(() => {
-    console.log(`Camera useEffect: switching to ${isPerspective ? 'Perspective' : 'Orthographic'} camera`);
-    activeCameraRef.current = isPerspective ? pCameraRef.current : oCameraRef.current;
-    console.log('Active camera set to:', activeCameraRef.current?.type || 'undefined');
-    
+        activeCameraRef.current = isPerspective ? pCameraRef.current : oCameraRef.current;
+        
     if (orbitControlsRef.current) {
       orbitControlsRef.current.object = activeCameraRef.current;
-      console.log('OrbitControls camera updated');
-    }
+          }
     if (transformControlsRef.current) {
       transformControlsRef.current.camera = activeCameraRef.current;
-      console.log('TransformControls camera updated');
-      // Force update the gizmo after camera change
+            // Force update the gizmo after camera change
       if (selectedGeometryRef.current) {
         transformControlsRef.current.attach(selectedGeometryRef.current);
       }
@@ -2203,8 +2149,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
     // Auto-save scene after creating geometry
     saveSceneToLocalStorage();
 
-    console.log(`Created ${geometryType} at position:`, position);
-
+    
     return mesh;
   }, [materialMode, showSolidAngleLines, saveSceneToLocalStorage, saveToHistory]);
 
@@ -2220,8 +2165,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
     const geometryType = e.dataTransfer.getData('text/plain');
     
     if (geometryType && canvasRef.current) {
-      console.log(`Dropped geometry: ${geometryType}`);
-      
+            
       // Calculate 3D position from drop coordinates
       const rect = canvasRef.current.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2270,8 +2214,7 @@ const reduceVolume = useCallback((targetMesh, reductionPoint) => {
         transformControlsRef.current.visible = true;
         onSelectionChange && onSelectionChange(true, mesh);
         
-        console.log(`Created ${geometryType} at position:`, dropPosition);
-      }
+              }
     }
   }, [createGeometryAtPosition, onSelectionChange]);
 

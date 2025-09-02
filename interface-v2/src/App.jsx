@@ -3,7 +3,10 @@ import ThreeScene from './components/ThreeScene';
 import Navigation from './components/Navigation';
 import GeometrySelector from './components/GeometrySelector';
 import Sidebar from './components/Sidebar';
-import VolumeForm from './components/VolumeForm';
+import VolumeForm from './components/VolumeForm/VolumeForm';
+import CompositionPanel from './components/VolumeForm/CompositionPanel';
+import LineSpectrumPanel from './components/VolumeForm/LineSpectrumPanel';
+import GroupSpectrumPanel from './components/VolumeForm/GroupSpectrumPanel';
 import GeometryPanel from './components/GeometryPanel';
 import HelpOverlay from './components/HelpOverlay';
 import ContextualHelp from './components/ContextualHelp';
@@ -20,6 +23,28 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [hasObjects, setHasObjects] = useState(false);
   const [hasSelectedObject, setHasSelectedObject] = useState(false);
+
+  // Panel visibility states for volume form panels
+  const [showCompositionPanel, setShowCompositionPanel] = useState(false);
+  const [showLineSpectrumPanel, setShowLineSpectrumPanel] = useState(false);
+  const [showGroupSpectrumPanel, setShowGroupSpectrumPanel] = useState(false);
+
+  // Current composition and spectrum data
+  const [currentComposition, setCurrentComposition] = useState(null);
+  const [currentSpectrum, setCurrentSpectrum] = useState(null);
+
+  // Mock data - in real app this would come from database/API
+  const [existingCompositions] = useState([
+    { name: 'Steel', density: 7.85, color: '#A9A9A9', elements: [{ element: 'Fe', percentage: 98 }, { element: 'C', percentage: 2 }] },
+    { name: 'Aluminum', density: 2.70, color: '#C0C0C0', elements: [{ element: 'Al', percentage: 100 }] },
+    { name: 'Water', density: 1.00, color: '#87CEEB', elements: [{ element: 'H', percentage: 11.19 }, { element: 'O', percentage: 88.81 }] }
+  ]);
+
+  const [existingSpectra] = useState([
+    { name: 'Co-60 Standard', type: 'line', multiplier: 1.0, lines: [{ energy: 1173.2, intensity: 99.85 }, { energy: 1332.5, intensity: 99.98 }] },
+    { name: 'Cs-137 Standard', type: 'line', multiplier: 1.0, lines: [{ energy: 661.7, intensity: 85.1 }] },
+    { name: 'Mixed Fission', type: 'group', multiplier: 1.0, isotopes: ['Cs-137', 'Sr-90', 'I-131'] }
+  ]);
 
   const handleShowVolumeForm = () => {
     setShowVolumeForm(true);
@@ -46,7 +71,7 @@ export default function App() {
           composition: volumeData.composition,
           realDensity: parseFloat(volumeData.realDensity) || 0,
           tolerance: parseFloat(volumeData.tolerance) || 0,
-          source: volumeData.source,
+          isSource: volumeData.isSource,
           calculation: volumeData.calculation,
           gammaSelectionMode: volumeData.gammaSelectionMode,
           spectrum: volumeData.spectrum
@@ -66,6 +91,38 @@ export default function App() {
     }
     
     setShowVolumeForm(false);
+  };
+
+  // Panel handlers
+  const handleCompositionChange = (compositionData) => {
+    setCurrentComposition(compositionData);
+  };
+
+  const handleSpectrumChange = (spectrumData) => {
+    setCurrentSpectrum(spectrumData);
+  };
+
+  const handleCompositionUse = (compositionData) => {
+    setCurrentComposition(compositionData);
+    setShowCompositionPanel(false);
+  };
+
+  const handleCompositionStore = (compositionData) => {
+    // In real app, this would save to database
+    console.log('Storing composition:', compositionData);
+    handleCompositionUse(compositionData);
+  };
+
+  const handleSpectrumValidate = (spectrumData) => {
+    setCurrentSpectrum(spectrumData);
+    setShowLineSpectrumPanel(false);
+    setShowGroupSpectrumPanel(false);
+  };
+
+  const handleSpectrumSaveAs = (spectrumData) => {
+    // In real app, this would save to database
+    console.log('Saving spectrum:', spectrumData);
+    handleSpectrumValidate(spectrumData);
   };
 
   const handleToolSelect = (toolId) => {
@@ -232,6 +289,11 @@ export default function App() {
           isVisible={showVolumeForm}
           onClose={handleVolumeFormClose}
           onSave={handleVolumeFormSave}
+          onShowCompositionPanel={() => setShowCompositionPanel(true)}
+          onShowLineSpectrumPanel={() => setShowLineSpectrumPanel(true)}
+          onShowGroupSpectrumPanel={() => setShowGroupSpectrumPanel(true)}
+          onCompositionChange={handleCompositionChange}
+          onSpectrumChange={handleSpectrumChange}
         />
 
         {/* Sidebar - Right Side */}
@@ -264,6 +326,34 @@ export default function App() {
           />
         </div>
       </div>
+
+      {/* Floating Panels - Draggable across entire scene */}
+      <CompositionPanel
+        isVisible={showCompositionPanel}
+        onClose={() => setShowCompositionPanel(false)}
+        onUse={handleCompositionUse}
+        onStore={handleCompositionStore}
+        initialComposition={currentComposition}
+        existingCompositions={existingCompositions}
+      />
+
+      <LineSpectrumPanel
+        isVisible={showLineSpectrumPanel}
+        onClose={() => setShowLineSpectrumPanel(false)}
+        onValidate={handleSpectrumValidate}
+        onSaveAs={handleSpectrumSaveAs}
+        initialSpectrum={currentSpectrum?.type === 'line' ? currentSpectrum : null}
+        existingSpectra={existingSpectra.filter(spec => spec.type === 'line')}
+      />
+
+      <GroupSpectrumPanel
+        isVisible={showGroupSpectrumPanel}
+        onClose={() => setShowGroupSpectrumPanel(false)}
+        onValidate={handleSpectrumValidate}
+        onSaveAs={handleSpectrumSaveAs}
+        initialSpectrum={currentSpectrum?.type === 'group' ? currentSpectrum : null}
+        existingSpectra={existingSpectra.filter(spec => spec.type === 'group')}
+      />
 
       {/* Help Overlay */}
       <HelpOverlay 

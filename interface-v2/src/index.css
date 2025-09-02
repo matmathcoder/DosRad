@@ -5,4 +5,38 @@
 body {
     font-family: 'Inter', sans-serif;
   }
+
+/* Fix for select dropdown positioning */
+select {
+  position: relative !important;
+  z-index: 9999 !important;
+}
+
+select:focus {
+  position: relative !important;
+  z-index: 9999 !important;
+}
+
+/* Ensure dropdown options appear correctly */
+select option {
+  background-color: #404040 !important;
+  color: white !important;
+  padding: 8px !important;
+}
+
+/* Fix for form containers that might clip dropdowns */
+.volume-form-container {
+  position: relative;
+  z-index: 40;
+}
+
+.volume-form-content {
+  position: relative;
+  z-index: 41;
+}
+
+.volume-form-select-container {
+  position: relative;
+  z-index: 50;
+}
   

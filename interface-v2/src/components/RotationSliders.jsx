@@ -19,7 +19,6 @@ export default function RotationSliders({ onRotationChange }) {
   const panelRef = useRef();
 
   const handleClose = () => {
-    console.log('Rotation sliders closed');
     // TODO: Implement close functionality
   };
 
@@ -44,13 +43,13 @@ export default function RotationSliders({ onRotationChange }) {
     }
   };
 
-  const handleMouseDown = (wheelType) => (event) => {
+  const handleWheelMouseDown = (wheelType) => (event) => {
     setIsDragging(prev => ({ ...prev, [wheelType]: true }));
     const rect = event.currentTarget.getBoundingClientRect();
     handleWheelInteraction(wheelType, event, rect);
   };
 
-  const handleMouseMove = (event) => {
+  const handleWheelMouseMove = (event) => {
     if (isDragging.horizontal && horizontalWheelRef.current) {
       const rect = horizontalWheelRef.current.getBoundingClientRect();
       handleWheelInteraction('horizontal', event, rect);
@@ -61,17 +60,17 @@ export default function RotationSliders({ onRotationChange }) {
     }
   };
 
-  const handleMouseUp = () => {
+  const handleWheelMouseUp = () => {
     setIsDragging({ horizontal: false, vertical: false });
   };
 
   useEffect(() => {
     if (isDragging.horizontal || isDragging.vertical) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleWheelMouseMove);
+      document.addEventListener('mouseup', handleWheelMouseUp);
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mousemove', handleWheelMouseMove);
+        document.removeEventListener('mouseup', handleWheelMouseUp);
       };
     }
   }, [isDragging.horizontal, isDragging.vertical]);
@@ -83,7 +82,7 @@ export default function RotationSliders({ onRotationChange }) {
   };
 
   // Panel dragging functions
-  const handlePanelMouseDown = (e) => {
+  const handleMouseDown = (e) => {
     // Only start panel dragging if clicking on the drag handle and not on wheel controls or buttons
     if (e.target.closest('.drag-handle') && 
         !e.target.closest('.wheel-control') && 
@@ -98,7 +97,7 @@ export default function RotationSliders({ onRotationChange }) {
     }
   };
 
-  const handlePanelMouseMove = (e) => {
+  const handleMouseMove = (e) => {
     if (!isPanelDragging) return;
     
     e.preventDefault();
@@ -108,8 +107,10 @@ export default function RotationSliders({ onRotationChange }) {
     
     // Keep within screen bounds with margins
     const margin = 20;
-    const maxX = window.innerWidth - 200 - margin; // panel width
-    const maxY = window.innerHeight - 300 - margin; // approximate panel height
+    const panelWidth = isMinimized ? 160 : 192; // w-40 = 160px, w-48 = 192px
+    const panelHeight = isMinimized ? 32 : 300; // approximate panel height
+    const maxX = window.innerWidth - panelWidth - margin;
+    const maxY = window.innerHeight - panelHeight - margin;
     
     const boundedX = Math.max(margin, Math.min(newX, maxX));
     const boundedY = Math.max(margin, Math.min(newY, maxY));
@@ -117,17 +118,17 @@ export default function RotationSliders({ onRotationChange }) {
     setPosition({ x: boundedX, y: boundedY });
   };
 
-  const handlePanelMouseUp = () => {
+  const handleMouseUp = () => {
     setIsPanelDragging(false);
   };
 
   useEffect(() => {
     if (isPanelDragging) {
-      document.addEventListener('mousemove', handlePanelMouseMove);
-      document.addEventListener('mouseup', handlePanelMouseUp);
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
       return () => {
-        document.removeEventListener('mousemove', handlePanelMouseMove);
-        document.removeEventListener('mouseup', handlePanelMouseUp);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
       };
     }
   }, [isPanelDragging]);
@@ -142,7 +143,7 @@ export default function RotationSliders({ onRotationChange }) {
         <div
           ref={wheelRef}
           onMouseDown={onMouseDown}
-          className="w-20 h-20 rounded-full border-4 border-neutral-600 bg-neutral-800 cursor-grab active:cursor-grabbing hover:border-neutral-500 transition-colors relative wheel-control"
+          className="w-20 h-20 rounded-full border-4 border-neutral-600 bg-neutral-800 cursor-grab active:cursor-grabbing hover:border-neutral-500 relative wheel-control"
           style={{ userSelect: 'none' }}
         >
           {/* Wheel markings */}
@@ -187,7 +188,7 @@ export default function RotationSliders({ onRotationChange }) {
   return (
     <div 
       ref={panelRef}
-      className={`rounded-md bg-neutral-700 pointer-events-auto transition-all duration-200 absolute ${
+      className={`rounded-md bg-neutral-700 pointer-events-auto absolute ${
         isMinimized ? 'w-40 h-8' : 'w-48'
       }`}
       style={{
@@ -195,7 +196,7 @@ export default function RotationSliders({ onRotationChange }) {
         top: `${position.y}px`,
         cursor: isPanelDragging ? 'grabbing' : 'default'
       }}
-      onMouseDown={handlePanelMouseDown}
+      onMouseDown={handleMouseDown}
     >
       {/* Title Bar */}
       <div className="flex items-center justify-between bg-neutral-800 rounded-t-md px-3 py-1 drag-handle cursor-grab">
@@ -227,7 +228,7 @@ export default function RotationSliders({ onRotationChange }) {
           {/* Horizontal Rotation Wheel */}
           <WheelComponent
             rotation={horizontalRotation}
-            onMouseDown={handleMouseDown('horizontal')}
+            onMouseDown={handleWheelMouseDown('horizontal')}
             wheelRef={horizontalWheelRef}
             label="Horizontal"
             icon={RotateCw}
@@ -236,7 +237,7 @@ export default function RotationSliders({ onRotationChange }) {
           {/* Vertical Rotation Wheel */}
           <WheelComponent
             rotation={verticalRotation}
-            onMouseDown={handleMouseDown('vertical')}
+            onMouseDown={handleWheelMouseDown('vertical')}
             wheelRef={verticalWheelRef}
             label="Vertical"
             icon={RotateCcw}
@@ -246,7 +247,7 @@ export default function RotationSliders({ onRotationChange }) {
           <div className="flex justify-center pt-2 border-t border-neutral-600">
             <button
               onClick={resetRotation}
-              className="px-3 py-1 bg-neutral-600 hover:bg-neutral-500 text-white text-xs rounded transition-colors"
+              className="px-3 py-1 bg-neutral-600 hover:bg-neutral-500 text-white text-xs rounded"
             >
               Reset
             </button>
