@@ -32,10 +32,12 @@ export default class CameraController {
     // Perspective camera
     this.pCameraRef = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
     this.pCameraRef.position.set(5, 5, 5);
+    this.pCameraRef.lookAt(0, 0, 0);
     
     // Orthographic camera
     this.oCameraRef = new THREE.OrthographicCamera(-5 * aspect, 5 * aspect, 5, -5, 0.1, 1000);
     this.oCameraRef.position.set(5, 5, 5);
+    this.oCameraRef.lookAt(0, 0, 0);
     
     // Set initial active camera
     this.activeCameraRef = this.pCameraRef;
@@ -43,6 +45,12 @@ export default class CameraController {
     // Set base distance for zoom calculations
     const initialDistance = this.pCameraRef.position.distanceTo(new THREE.Vector3(0, 0, 0));
     this.baseDistance = initialDistance;
+    
+    console.log('Cameras initialized:', {
+      perspective: this.pCameraRef,
+      orthographic: this.oCameraRef,
+      active: this.activeCameraRef
+    });
   }
   
   setupControls() {
@@ -85,10 +93,27 @@ export default class CameraController {
   }
   
   updateActiveCamera() {
+    // Store the previous camera for position/rotation transfer
+    const previousCamera = this.activeCameraRef;
+    
+    // Switch to the appropriate camera
     this.activeCameraRef = this.state.isPerspective ? this.pCameraRef : this.oCameraRef;
     
+    // Transfer camera position and rotation if we had a previous camera
+    if (previousCamera && previousCamera !== this.activeCameraRef) {
+      this.activeCameraRef.position.copy(previousCamera.position);
+      this.activeCameraRef.rotation.copy(previousCamera.rotation);
+      
+      // Update projection matrix for orthographic camera
+      if (this.activeCameraRef.isOrthographicCamera) {
+        this.activeCameraRef.updateProjectionMatrix();
+      }
+    }
+    
+    // Update orbit controls
     if (this.orbitControlsRef) {
       this.orbitControlsRef.object = this.activeCameraRef;
+      this.orbitControlsRef.update();
     }
   }
   
@@ -227,8 +252,20 @@ export default class CameraController {
   }
   
   togglePerspective() {
-    this.state.setIsPerspective(!this.state.isPerspective);
+    // Toggle the perspective state
+    const newPerspectiveState = !this.state.isPerspective;
+    this.state.setIsPerspective(newPerspectiveState);
+    
+    // Update the active camera
     this.updateActiveCamera();
+    
+    // Ensure the orbit controls are properly updated
+    if (this.orbitControlsRef) {
+      this.orbitControlsRef.object = this.activeCameraRef;
+      this.orbitControlsRef.update();
+    }
+    
+    // Log for debugging
   }
   
   saveHomeView() {
@@ -250,21 +287,31 @@ export default class CameraController {
     }
   }
   
-  handleResize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+  handleResize(w = window.innerWidth, h = window.innerHeight) {
+    const aspect = w / h;
     
+    // Update perspective camera
     if (this.pCameraRef) {
-      this.pCameraRef.aspect = w / h;
+      this.pCameraRef.aspect = aspect;
       this.pCameraRef.updateProjectionMatrix();
     }
     
+    // Update orthographic camera
     if (this.oCameraRef) {
-      const halfHeight = (this.oCameraRef.top - this.oCameraRef.bottom) / 2;
-      const halfWidth = halfHeight * (w / h);
-      this.oCameraRef.left = -halfWidth;
-      this.oCameraRef.right = halfWidth;
+      const baseSize = 5; // Base size when zoom is 100%
+      const zoomFactor = this.currentZoom / 100;
+      const size = baseSize / zoomFactor;
+      
+      this.oCameraRef.left = -size * aspect;
+      this.oCameraRef.right = size * aspect;
+      this.oCameraRef.top = size;
+      this.oCameraRef.bottom = -size;
       this.oCameraRef.updateProjectionMatrix();
+    }
+    
+    // Update orbit controls
+    if (this.orbitControlsRef) {
+      this.orbitControlsRef.update();
     }
   }
   

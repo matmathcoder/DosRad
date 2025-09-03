@@ -328,16 +328,19 @@ export default function VolumeForm({
               </div>
               <div>
                 <label className="block text-white text-xs font-medium mb-1">
-                  Tolerance
+                  Tolerance (%)
                 </label>
                 <input
                   type="number"
-                  step="0.0001"
+                  step="0.01"
+                  min="0"
+                  max="100"
                   value={formData.tolerance}
                   onChange={(e) => handleInputChange('tolerance', e.target.value)}
                   className="w-full px-2 py-1.5 bg-neutral-700 border border-neutral-600 rounded text-white text-xs focus:outline-none focus:border-neutral-400"
-                  placeholder="0.0000"
+                  placeholder="0.00"
                 />
+                <p className="text-neutral-400 text-xs mt-1">Percentage tolerance for density calculations</p>
               </div>
             </div>
           </div>

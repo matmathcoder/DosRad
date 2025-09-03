@@ -8,8 +8,7 @@ import {
   Zap,
   ChevronDown
 } from 'lucide-react';
-import { t, getTranslations } from '../utils/translations';
-
+import {t, getTranslations} from '../../utils/translations';
 export default function BottomBar({ onZoomChange, onLanguageChange, onUnitChange, onModeChange }) {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [currentLanguage, setCurrentLanguage] = useState('en');
@@ -124,7 +123,7 @@ export default function BottomBar({ onZoomChange, onLanguageChange, onUnitChange
           
           <button
             onClick={handleZoomReset}
-            className="px-3 py-1 hover:bg-neutral-600 rounded-md text-white text-sm font-mono min-w-[60px] transition-colors"
+            className="px-3 py-1 hover:bg-neutral-600 rounded-md text-white font-mono min-w-[60px] transition-colors"
             title={t('resetZoom', currentLanguage)}
           >
             {zoomLevel}%

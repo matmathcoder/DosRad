@@ -22,7 +22,6 @@ export default function GeometrySelector({ onGeometrySelect }) {
   ];
 
   const handleGeometrySelect = (geometryName) => {
-    console.log(`Selected geometry: ${geometryName}`);
     if (onGeometrySelect) {
       onGeometrySelect(geometryName.toLowerCase());
     }
@@ -30,7 +29,6 @@ export default function GeometrySelector({ onGeometrySelect }) {
 
   // Drag and drop handlers for geometry buttons
   const handleDragStart = (e, geometryName) => {
-    console.log(`Starting drag for: ${geometryName}`);
     e.dataTransfer.setData('text/plain', geometryName.toLowerCase());
     e.dataTransfer.effectAllowed = 'copy';
     
@@ -38,26 +36,177 @@ export default function GeometrySelector({ onGeometrySelect }) {
     e.target.style.opacity = '0.5';
     e.target.style.transform = 'scale(0.9)';
     
-    // Create a custom drag image with better styling
+    // Create a custom drag image with geometry preview
     const dragImage = document.createElement('div');
     dragImage.style.cssText = `
-      background: rgba(34, 197, 94, 0.9);
+      background: rgba(64, 64, 64, 0.95);
       color: white;
-      padding: 8px 12px;
+      padding: 12px;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 500;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      border: 2px solid rgba(34, 197, 94, 1);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      border: 2px solid rgba(255, 255, 255, 0.3);
       pointer-events: none;
       position: absolute;
       top: -1000px;
       left: -1000px;
       z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 80px;
     `;
-    dragImage.textContent = `Drop ${geometryName} in scene`;
+    
+    // Create geometry preview based on type
+    const geometryPreview = document.createElement('div');
+    geometryPreview.style.cssText = `
+      width: 40px;
+      height: 40px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    
+    // Create SVG geometry preview
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '40');
+    svg.setAttribute('height', '40');
+    svg.setAttribute('viewBox', '0 0 40 40');
+    svg.style.cssText = `
+      fill: #ffffff;
+      stroke: #ffffff;
+      stroke-width: 1;
+    `;
+    
+    // Create different geometry shapes based on type
+    const geometryType = geometryName.toLowerCase();
+    let geometryElement;
+    
+    switch (geometryType) {
+      case 'cube':
+        geometryElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        geometryElement.setAttribute('x', '8');
+        geometryElement.setAttribute('y', '8');
+        geometryElement.setAttribute('width', '24');
+        geometryElement.setAttribute('height', '24');
+        geometryElement.setAttribute('fill', 'none');
+        geometryElement.setAttribute('stroke', '#ffffff');
+        geometryElement.setAttribute('stroke-width', '2');
+        break;
+        
+      case 'sphere':
+        geometryElement = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        geometryElement.setAttribute('cx', '20');
+        geometryElement.setAttribute('cy', '20');
+        geometryElement.setAttribute('r', '12');
+        geometryElement.setAttribute('fill', 'none');
+        geometryElement.setAttribute('stroke', '#ffffff');
+        geometryElement.setAttribute('stroke-width', '2');
+        break;
+        
+      case 'cylinder':
+        // Create cylinder with ellipses and lines
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        
+        // Top ellipse
+        const topEllipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        topEllipse.setAttribute('cx', '20');
+        topEllipse.setAttribute('cy', '12');
+        topEllipse.setAttribute('rx', '10');
+        topEllipse.setAttribute('ry', '4');
+        topEllipse.setAttribute('fill', 'none');
+        topEllipse.setAttribute('stroke', '#ffffff');
+        topEllipse.setAttribute('stroke-width', '2');
+        
+        // Bottom ellipse
+        const bottomEllipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        bottomEllipse.setAttribute('cx', '20');
+        bottomEllipse.setAttribute('cy', '28');
+        bottomEllipse.setAttribute('rx', '10');
+        bottomEllipse.setAttribute('ry', '4');
+        bottomEllipse.setAttribute('fill', 'none');
+        bottomEllipse.setAttribute('stroke', '#ffffff');
+        bottomEllipse.setAttribute('stroke-width', '2');
+        
+        // Side lines
+        const leftLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        leftLine.setAttribute('x1', '10');
+        leftLine.setAttribute('y1', '12');
+        leftLine.setAttribute('x2', '10');
+        leftLine.setAttribute('y2', '28');
+        leftLine.setAttribute('stroke', '#ffffff');
+        leftLine.setAttribute('stroke-width', '2');
+        
+        const rightLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        rightLine.setAttribute('x1', '30');
+        rightLine.setAttribute('y1', '12');
+        rightLine.setAttribute('x2', '30');
+        rightLine.setAttribute('y2', '28');
+        rightLine.setAttribute('stroke', '#ffffff');
+        rightLine.setAttribute('stroke-width', '2');
+        
+        group.appendChild(topEllipse);
+        group.appendChild(bottomEllipse);
+        group.appendChild(leftLine);
+        group.appendChild(rightLine);
+        geometryElement = group;
+        break;
+        
+      case 'cone':
+        // Create cone with triangle and ellipse
+        const coneGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        
+        // Triangle (cone body)
+        const triangle = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        triangle.setAttribute('points', '20,8 10,32 30,32');
+        triangle.setAttribute('fill', 'none');
+        triangle.setAttribute('stroke', '#ffffff');
+        triangle.setAttribute('stroke-width', '2');
+        
+        // Base ellipse
+        const baseEllipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        baseEllipse.setAttribute('cx', '20');
+        baseEllipse.setAttribute('cy', '32');
+        baseEllipse.setAttribute('rx', '10');
+        baseEllipse.setAttribute('ry', '2');
+        baseEllipse.setAttribute('fill', 'none');
+        baseEllipse.setAttribute('stroke', '#ffffff');
+        baseEllipse.setAttribute('stroke-width', '2');
+        
+        coneGroup.appendChild(triangle);
+        coneGroup.appendChild(baseEllipse);
+        geometryElement = coneGroup;
+        break;
+        
+      default:
+        geometryElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        geometryElement.setAttribute('x', '8');
+        geometryElement.setAttribute('y', '8');
+        geometryElement.setAttribute('width', '24');
+        geometryElement.setAttribute('height', '24');
+        geometryElement.setAttribute('fill', 'none');
+        geometryElement.setAttribute('stroke', '#ffffff');
+        geometryElement.setAttribute('stroke-width', '2');
+    }
+    
+    svg.appendChild(geometryElement);
+    geometryPreview.appendChild(svg);
+    
+    // Add text label
+    const textLabel = document.createElement('div');
+    textLabel.textContent = geometryName;
+    textLabel.style.cssText = `
+      font-size: 10px;
+      text-align: center;
+      color: #ffffff;
+    `;
+    
+    dragImage.appendChild(geometryPreview);
+    dragImage.appendChild(textLabel);
     document.body.appendChild(dragImage);
-    e.dataTransfer.setDragImage(dragImage, 75, 20);
+    e.dataTransfer.setDragImage(dragImage, 40, 40);
     
     // Clean up the drag image after a short delay
     setTimeout(() => {
@@ -68,25 +217,21 @@ export default function GeometrySelector({ onGeometrySelect }) {
   };
 
   const handleDragEnd = (e) => {
-    console.log('Drag ended');
     // Reset visual feedback
     e.target.style.opacity = '1';
     e.target.style.transform = 'scale(1)';
   };
 
   const handleClose = () => {
-    console.log('Geometry selector closed');
     // TODO: Implement close functionality
   };
 
   const handleResize = () => {
     setIsMaximized(!isMaximized);
-    console.log(`Geometry selector ${isMaximized ? 'minimized' : 'maximized'}`);
   };
 
   const handleMinimize = () => {
     setIsMinimized(!isMinimized);
-    console.log(`Geometry selector ${isMinimized ? 'restored' : 'minimized'}`);
   };
 
   // Dragging functions

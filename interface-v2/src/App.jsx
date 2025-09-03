@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { MousePointer2, Cctv } from 'lucide-react';
 import ThreeScene from './components/ThreeScene';
-import Navigation from './components/Navigation';
+import Navigation from './components/Bars/Navigation';
 import GeometrySelector from './components/GeometrySelector';
-import Sidebar from './components/Sidebar';
+import Sidebar from './components/Bars/Sidebar';
 import VolumeForm from './components/VolumeForm/VolumeForm';
 import CompositionPanel from './components/VolumeForm/CompositionPanel';
 import LineSpectrumPanel from './components/VolumeForm/LineSpectrumPanel';
@@ -10,8 +11,9 @@ import GroupSpectrumPanel from './components/VolumeForm/GroupSpectrumPanel';
 import GeometryPanel from './components/GeometryPanel';
 import HelpOverlay from './components/HelpOverlay';
 import ContextualHelp from './components/ContextualHelp';
-import BottomBar from './components/BottomBar';
+import BottomBar from './components/Bars/BottomBar';
 import RotationSliders from './components/RotationSliders';
+import { AuthProvider } from './contexts/AuthContext';
 
 export default function App() {
   const [showVolumeForm, setShowVolumeForm] = useState(false);
@@ -23,6 +25,21 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [hasObjects, setHasObjects] = useState(false);
   const [hasSelectedObject, setHasSelectedObject] = useState(false);
+  const [cameraMode, setCameraMode] = useState('perspective');
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
+
+  // Component visibility state
+  const [componentVisibility, setComponentVisibility] = useState({
+    contextualHelp: false,
+    helpOverlay: true,
+    geometrySelector: true,
+    volumeForm: false,
+    rotationSliders: true,
+    debugPanel: false
+  });
 
   // Panel visibility states for volume form panels
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
@@ -55,8 +72,6 @@ export default function App() {
   };
 
   const handleVolumeFormSave = (volumeData) => {
-    console.log('Volume created:', volumeData);
-    
     // Create the 3D geometry in the scene
     if (createGeometryFunction && volumeData.geometryType) {
       const geometry = createGeometryFunction(volumeData.geometryType);
@@ -85,8 +100,6 @@ export default function App() {
           position: geometry.position,
           userData: geometry.userData
         }]);
-        
-        console.log('3D Volume created successfully with data:', geometry.userData);
       }
     }
     
@@ -109,7 +122,6 @@ export default function App() {
 
   const handleCompositionStore = (compositionData) => {
     // In real app, this would save to database
-    console.log('Storing composition:', compositionData);
     handleCompositionUse(compositionData);
   };
 
@@ -121,12 +133,16 @@ export default function App() {
 
   const handleSpectrumSaveAs = (spectrumData) => {
     // In real app, this would save to database
-    console.log('Saving spectrum:', spectrumData);
     handleSpectrumValidate(spectrumData);
   };
 
   const handleToolSelect = (toolId) => {
     setSelectedTool(toolId);
+    
+    // Update camera mode when camera tool is used
+    if (toolId === 'camera') {
+      setCameraMode(prev => prev === 'perspective' ? 'orthographic' : 'perspective');
+    }
   };
 
   const handleGeometrySelect = (geometryType) => {
@@ -167,28 +183,23 @@ export default function App() {
     if (window.setMaterialMode) {
       window.setMaterialMode(mode);
     }
-    console.log(`Material mode changed to: ${mode}`);
   };
 
   const handleZoomChange = (zoomLevel) => {
     if (window.setZoomLevel) {
       window.setZoomLevel(zoomLevel);
     }
-    console.log(`Zoom level changed to: ${zoomLevel}%`);
   };
 
   const handleLanguageChange = (language) => {
-    console.log(`Language changed to: ${language.name}`);
     // TODO: Implement language switching logic
   };
 
   const handleUnitChange = (unit) => {
-    console.log(`Unit changed to: ${unit.name}`);
     // TODO: Implement unit conversion logic
   };
 
   const handleModeChange = (modeData) => {
-    console.log(`Mode changed:`, modeData);
     // TODO: Implement mode switching logic
   };
 
@@ -196,14 +207,12 @@ export default function App() {
     if (window.setSceneRotation) {
       window.setSceneRotation(rotation);
     }
-    console.log(`Scene rotation changed:`, rotation);
   };
 
   const handleViewMenuAction = (action) => {
     if (window.handleViewMenuAction) {
       window.handleViewMenuAction(action);
     }
-    console.log(`View menu action: ${action}`);
   };
 
   const handleSelectionChange = (hasSelection, selectedObject = null) => {
@@ -225,12 +234,10 @@ export default function App() {
   const handleShowGeometryPanel = () => {
     // Always show the panel, even if no geometry is selected
     setShowGeometryPanel(true);
-    console.log('Opening geometry panel. Selected geometry:', selectedGeometry);
   };
 
   const handleGeometryPanelClose = (geometryData = null) => {
     if (geometryData) {
-      console.log('Geometry panel saved:', geometryData);
       // TODO: Apply geometry changes to the 3D scene
       if (window.updateGeometry) {
         window.updateGeometry(selectedGeometry.id, geometryData);
@@ -239,18 +246,187 @@ export default function App() {
     setShowGeometryPanel(false);
   };
 
+  const handleToggleComponentVisibility = (componentKey, isVisible) => {
+    setComponentVisibility(prev => ({
+      ...prev,
+      [componentKey]: isVisible
+    }));
+  };
+
+  // Function to collect current scene data
+  const getSceneData = () => {
+    const sceneData = {
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      metadata: {
+        name: 'Mercurad Scene',
+        description: '3D Scene with volumes and geometries',
+        created: new Date().toISOString(),
+        modified: new Date().toISOString()
+      },
+      scene: {
+        camera: {
+          mode: cameraMode,
+          position: window.getCameraPosition ? window.getCameraPosition() : { x: 0, y: 5, z: 10 },
+          rotation: window.getCameraRotation ? window.getCameraRotation() : { x: 0, y: 0, z: 0 }
+        },
+        view: {
+          mode: window.getViewMode ? window.getViewMode() : 'solid',
+          material: window.getMaterialMode ? window.getMaterialMode() : 'solid'
+        },
+        axis: window.getAxisView ? window.getAxisView() : 'Z'
+      },
+      objects: existingVolumes.map(volume => ({
+        id: volume.id,
+        type: volume.type,
+        name: volume.userData?.volumeName || 'Unnamed Volume',
+        position: volume.position,
+        geometry: {
+          type: volume.type,
+          parameters: volume.userData?.geometryParameters || {}
+        },
+        volume: {
+          name: volume.userData?.volumeName || 'Unnamed Volume',
+          type: volume.userData?.volumeType || 'Unknown',
+          composition: volume.userData?.composition || null,
+          realDensity: volume.userData?.realDensity || 0,
+          tolerance: volume.userData?.tolerance || 0,
+          isSource: volume.userData?.isSource || false,
+          calculation: volume.userData?.calculation || null,
+          gammaSelectionMode: volume.userData?.gammaSelectionMode || null,
+          spectrum: volume.userData?.spectrum || null
+        },
+        userData: volume.userData
+      })),
+      settings: {
+        componentVisibility,
+        selectedTool,
+        hasObjects,
+        hasSelectedObject
+      }
+    };
+    
+    return sceneData;
+  };
+
+  // Function to load scene data
+  const loadSceneData = (sceneData) => {
+    console.log('Loading scene data:', sceneData);
+    
+    try {
+      // Load scene settings
+      if (sceneData.scene) {
+        // Load camera settings
+        if (sceneData.scene.camera) {
+          if (window.setCameraPosition && sceneData.scene.camera.position) {
+            // Note: Camera position will be handled by ThreeScene component
+          }
+          if (window.setAxisView && sceneData.scene.camera.mode) {
+            // Set camera mode if different
+            if (sceneData.scene.camera.mode !== cameraMode) {
+              setCameraMode(sceneData.scene.camera.mode);
+            }
+          }
+        }
+        
+        // Load view settings
+        if (sceneData.scene.view) {
+          if (window.setViewMode && sceneData.scene.view.mode) {
+            window.setViewMode(sceneData.scene.view.mode);
+          }
+          if (window.setMaterialMode && sceneData.scene.view.material) {
+            window.setMaterialMode(sceneData.scene.view.material);
+          }
+        }
+        
+        // Load axis setting
+        if (sceneData.scene.axis && window.setAxisView) {
+          window.setAxisView(sceneData.scene.axis);
+        }
+      }
+      
+      // Load objects/volumes
+      if (sceneData.objects && Array.isArray(sceneData.objects)) {
+        // Clear existing volumes first
+        setExistingVolumes([]);
+        
+        // Load each object
+        sceneData.objects.forEach(obj => {
+          if (window.createGeometryFromData) {
+            const geometry = window.createGeometryFromData(obj);
+            if (geometry) {
+              setExistingVolumes(prev => [...prev, {
+                id: obj.id,
+                type: obj.type,
+                name: obj.name,
+                position: obj.position,
+                userData: obj.userData
+              }]);
+            }
+          }
+        });
+        
+        // Update object states
+        setHasObjects(sceneData.objects.length > 0);
+        setHasSelectedObject(false);
+      }
+      
+      // Load component visibility settings
+      if (sceneData.settings && sceneData.settings.componentVisibility) {
+        setComponentVisibility(sceneData.settings.componentVisibility);
+      }
+      
+      // Load selected tool
+      if (sceneData.settings && sceneData.settings.selectedTool) {
+        setSelectedTool(sceneData.settings.selectedTool);
+      }
+      
+      console.log('Scene data loaded successfully');
+    } catch (error) {
+      console.error('Error loading scene data:', error);
+    }
+  };
+
   // Handle help toggle from F1 key
   useEffect(() => {
     const handleToggleHelp = () => {
       setShowHelp(prev => !prev);
+      // Also toggle the help overlay visibility
+      setComponentVisibility(prev => ({
+        ...prev,
+        helpOverlay: !prev.helpOverlay
+      }));
+    };
+
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
     };
 
     window.addEventListener('toggleHelp', handleToggleHelp);
-    return () => window.removeEventListener('toggleHelp', handleToggleHelp);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(handleResize, 100);
+    });
+
+    // Expose loadSceneData function globally
+    window.loadSceneData = loadSceneData;
+
+    return () => {
+      window.removeEventListener('toggleHelp', handleToggleHelp);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      delete window.loadSceneData;
+    };
   }, []);
 
   return (
-    <div className="bg-neutral-800 h-screen relative ">
+    <AuthProvider>
+      <div className={`bg-neutral-800 h-screen relative overflow-hidden ${
+        windowSize.width < 640 ? 'text-xs' : 'text-sm'
+      }`}>
       {/* Three.js Scene Container - Higher z-index for interactions */}
       <div className="absolute inset-0 z-20">
         <ThreeScene
@@ -275,31 +451,65 @@ export default function App() {
             onMaterialChange={handleMaterialChange}
             onViewMenuAction={handleViewMenuAction}
             onShowGeometryPanel={handleShowGeometryPanel}
+            onToggleComponentVisibility={handleToggleComponentVisibility}
+            sceneData={getSceneData()}
           />
         </div>
         
         {/* Geometry Selector - Draggable */}
-        <GeometrySelector onGeometrySelect={handleGeometrySelect} />
+        {componentVisibility.geometrySelector && (
+          <GeometrySelector onGeometrySelect={handleGeometrySelect} />
+        )}
 
         {/* Rotation Sliders - Draggable */}
-        <RotationSliders onRotationChange={handleSceneRotationChange} />
+        {componentVisibility.rotationSliders && (
+          <RotationSliders onRotationChange={handleSceneRotationChange} />
+        )}
 
         {/* Volume Form - Draggable */}
-        <VolumeForm
-          isVisible={showVolumeForm}
-          onClose={handleVolumeFormClose}
-          onSave={handleVolumeFormSave}
-          onShowCompositionPanel={() => setShowCompositionPanel(true)}
-          onShowLineSpectrumPanel={() => setShowLineSpectrumPanel(true)}
-          onShowGroupSpectrumPanel={() => setShowGroupSpectrumPanel(true)}
-          onCompositionChange={handleCompositionChange}
-          onSpectrumChange={handleSpectrumChange}
-        />
+        {componentVisibility.volumeForm && (
+          <VolumeForm
+            isVisible={showVolumeForm}
+            onClose={handleVolumeFormClose}
+            onSave={handleVolumeFormSave}
+            onShowCompositionPanel={() => setShowCompositionPanel(true)}
+            onShowLineSpectrumPanel={() => setShowLineSpectrumPanel(true)}
+            onShowGroupSpectrumPanel={() => setShowGroupSpectrumPanel(true)}
+            onCompositionChange={handleCompositionChange}
+            onSpectrumChange={handleSpectrumChange}
+          />
+        )}
 
-        {/* Sidebar - Right Side */}
-        <div className="absolute top-1/2 right-4 transform -translate-y-1/2 pointer-events-auto">
-          <Sidebar selectedTool={selectedTool} onToolSelect={handleToolSelect} />
+        {/* Sidebar - Right Side - Responsive positioning */}
+        <div className="absolute top-1/2 right-2 sm:right-4 transform -translate-y-1/2 pointer-events-auto">
+          <Sidebar selectedTool={selectedTool} onToolSelect={handleToolSelect} cameraMode={cameraMode} />
         </div>
+
+        {/* Mobile Toolbar - Bottom Right for small screens */}
+        {windowSize.width < 640 && (
+          <div className="absolute bottom-16 right-2 pointer-events-auto">
+            <div className="bg-neutral-700 rounded-lg shadow-lg p-2">
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => handleToolSelect('select')}
+                  className={`p-2 rounded ${selectedTool === 'select' ? 'bg-neutral-600' : 'hover:bg-neutral-600'}`}
+                  title="Select Tool"
+                >
+                  <MousePointer2 size={16} className="text-white" />
+                </button>
+                <button
+                  onClick={() => handleToolSelect('camera')}
+                  className={`p-2 rounded ${selectedTool === 'camera' ? 'bg-neutral-600' : 'hover:bg-neutral-600'}`}
+                  title={`Camera (${cameraMode})`}
+                >
+                  <Cctv size={16} className="text-white" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+
 
         {/* Geometry Panel - Draggable */}
         <GeometryPanel 
@@ -309,15 +519,19 @@ export default function App() {
           existingVolumes={existingVolumes}
         />
 
-        {/* Contextual Help - Bottom Left */}
-        <ContextualHelp 
-          selectedTool={selectedTool}
-          hasSelectedObject={hasSelectedObject}
-          hasObjects={hasObjects}
-        />
+        {/* Contextual Help - Draggable floating component */}
+        {componentVisibility.contextualHelp && (
+          <ContextualHelp 
+            selectedTool={selectedTool}
+            hasSelectedObject={hasSelectedObject}
+            hasObjects={hasObjects}
+            cameraMode={cameraMode}
+            windowSize={windowSize}
+          />
+        )}
 
-        {/* Bottom Bar - Bottom Center */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 pointer-events-auto">
+        {/* Bottom Bar - Bottom Center - Responsive positioning */}
+        <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 pointer-events-auto">
           <BottomBar 
             onZoomChange={handleZoomChange}
             onLanguageChange={handleLanguageChange}
@@ -356,11 +570,14 @@ export default function App() {
       />
 
       {/* Help Overlay */}
-      <HelpOverlay 
-        isVisible={showHelp}
-        onClose={() => setShowHelp(false)}
-      />
-    </div>
+      {componentVisibility.helpOverlay && (
+        <HelpOverlay 
+          isVisible={showHelp}
+          onClose={() => setShowHelp(false)}
+        />
+      )}
+      </div>
+    </AuthProvider>
   );
 }
 

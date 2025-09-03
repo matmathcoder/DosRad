@@ -5,6 +5,11 @@ export default class SceneManager {
     this.refs = refs;
     this.state = state;
     this.callbacks = callbacks;
+    this.modules = null;
+  }
+  
+  setModules(modules) {
+    this.modules = modules;
   }
   
   initialize() {
@@ -84,10 +89,25 @@ export default class SceneManager {
       const renderer = this.refs.rendererRef.current;
       const w = window.innerWidth;
       const h = window.innerHeight;
+      
+      // Update renderer size
       renderer.setSize(w, h);
+      
+      // Update pixel ratio for high DPI displays
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      
+      // Notify other modules about resize
+      if (this.modules?.cameraController) {
+        this.modules.cameraController.handleResize(w, h);
+      }
     };
     
     window.addEventListener('resize', this.onResize);
+    
+    // Also handle orientation change on mobile
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => this.onResize(), 100);
+    });
   }
   
   cleanup() {

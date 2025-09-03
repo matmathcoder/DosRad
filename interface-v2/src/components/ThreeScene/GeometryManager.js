@@ -84,6 +84,120 @@ export default class GeometryManager {
     return mesh;
   }
   
+  createGeometryFromData(objData) {
+    if (!this.refs.sceneRef.current) return null;
+    
+    // Save history state BEFORE creating new geometry
+    if (this.modules?.historyManager) {
+      this.modules.historyManager.saveToHistory();
+    }
+    
+    let geometry, material, mesh;
+    const geometryType = objData.geometry?.type || objData.type;
+    
+    // Create geometry based on type and parameters
+    switch (geometryType) {
+      case 'cube':
+      case 'box':
+        const boxParams = objData.geometry?.parameters || {};
+        geometry = new THREE.BoxGeometry(
+          boxParams.width || 1,
+          boxParams.height || 1,
+          boxParams.depth || 1
+        );
+        material = new THREE.MeshStandardMaterial({ color: 0x525252 });
+        break;
+      case 'sphere':
+        const sphereParams = objData.geometry?.parameters || {};
+        geometry = new THREE.SphereGeometry(
+          sphereParams.radius || 0.5,
+          sphereParams.widthSegments || 32,
+          sphereParams.heightSegments || 32
+        );
+        material = new THREE.MeshStandardMaterial({ color: 0x4a90e2 });
+        break;
+      case 'cylinder':
+        const cylinderParams = objData.geometry?.parameters || {};
+        geometry = new THREE.CylinderGeometry(
+          cylinderParams.radiusTop || 0.5,
+          cylinderParams.radiusBottom || 0.5,
+          cylinderParams.height || 1,
+          cylinderParams.radialSegments || 32
+        );
+        material = new THREE.MeshStandardMaterial({ color: 0x7ed321 });
+        break;
+      case 'cone':
+        const coneParams = objData.geometry?.parameters || {};
+        geometry = new THREE.ConeGeometry(
+          coneParams.radius || 0.5,
+          coneParams.height || 1,
+          coneParams.radialSegments || 32
+        );
+        material = new THREE.MeshStandardMaterial({ color: 0xf5a623 });
+        break;
+      default:
+        console.warn(`Unknown geometry type: ${geometryType}`);
+        return null;
+    }
+    
+    mesh = new THREE.Mesh(geometry, material);
+    
+    // Set position from data
+    if (objData.position) {
+      mesh.position.set(objData.position.x || 0, objData.position.y || 0, objData.position.z || 0);
+    }
+    
+    // Set rotation if available
+    if (objData.rotation) {
+      mesh.rotation.set(objData.rotation.x || 0, objData.rotation.y || 0, objData.rotation.z || 0);
+    }
+    
+    // Set scale if available
+    if (objData.scale) {
+      mesh.scale.set(objData.scale.x || 1, objData.scale.y || 1, objData.scale.z || 1);
+    }
+    
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    
+    // Set userData from the loaded data
+    mesh.userData = {
+      type: geometryType,
+      id: objData.id || Date.now(),
+      originalColor: material.color.getHex(),
+      volumeName: objData.name || 'Unnamed Volume',
+      volumeType: objData.volume?.type || 'Unknown',
+      composition: objData.volume?.composition || null,
+      realDensity: objData.volume?.realDensity || 0,
+      tolerance: objData.volume?.tolerance || 0,
+      isSource: objData.volume?.isSource || false,
+      calculation: objData.volume?.calculation || null,
+      gammaSelectionMode: objData.volume?.gammaSelectionMode || null,
+      spectrum: objData.volume?.spectrum || null,
+      geometryParameters: objData.geometry?.parameters || {},
+      ...objData.userData // Include any additional userData
+    };
+    
+    // Apply current view mode to loaded object
+    this.applyViewMode(mesh, this.state.viewMode);
+    this.applyMaterialMode(mesh, this.state.materialMode);
+    
+    this.refs.sceneGroupRef.current.add(mesh);
+    this.refs.geometriesRef.current.push(mesh);
+    
+    // Add solid angle line if enabled
+    if (this.state.showSolidAngleLines) {
+      this.addSolidAngleLine(mesh);
+    }
+    
+    // Auto-save scene after creating geometry
+    if (this.modules?.persistenceManager) {
+      this.modules.persistenceManager.saveScene();
+    }
+    
+    return mesh;
+  }
+
   createGeometryAtPosition(geometryType, position) {
     if (!this.refs.sceneRef.current) return null;
     
@@ -268,66 +382,162 @@ export default class GeometryManager {
       return null;
     }
     
-    // Create a simple combined geometry based on operation type
+    // Save history state BEFORE performing CSG operation
+    if (this.modules?.historyManager) {
+      this.modules.historyManager.saveToHistory();
+    }
+    
     let resultGeometry;
     let resultMaterial;
+    let resultPosition;
     
-    // For now, we'll create a basic implementation
-    // In a full implementation, you'd use a proper CSG library like THREE-CSGMesh
+    // Get bounding boxes for both objects
+    const boxA = new THREE.Box3().setFromObject(objectA);
+    const boxB = new THREE.Box3().setFromObject(objectB);
+    
+    // Calculate combined bounding box
+    const combinedBox = new THREE.Box3().union(boxA).union(boxB);
+    const center = combinedBox.getCenter(new THREE.Vector3());
+    const size = combinedBox.getSize(new THREE.Vector3());
+    
     switch (operation) {
       case 'union':
-        // Simple union - create a group containing both objects
+        // Union - create geometry that encompasses both objects
         resultGeometry = new THREE.BoxGeometry(
-          Math.max(objectA.scale.x, objectB.scale.x) * 1.2,
-          Math.max(objectA.scale.y, objectB.scale.y) * 1.2,
-          Math.max(objectA.scale.z, objectB.scale.z) * 1.2
+          size.x * 1.1, // Slightly larger to encompass both
+          size.y * 1.1,
+          size.z * 1.1
         );
         resultMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0x888888,
-          transparent: true,
-          opacity: 0.8
-        });
-        break;
-        
-      case 'subtract':
-        // Simple subtraction - create smaller geometry
-        resultGeometry = new THREE.BoxGeometry(
-          Math.abs(objectA.scale.x - objectB.scale.x * 0.5),
-          Math.abs(objectA.scale.y - objectB.scale.y * 0.5),
-          Math.abs(objectA.scale.z - objectB.scale.z * 0.5)
-        );
-        resultMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0x666666,
+          color: 0x4CAF50, // Green for union
           transparent: true,
           opacity: 0.9
         });
+        resultPosition = center;
+        break;
+        
+      case 'subtract':
+        // Subtraction - create geometry representing A minus B
+        resultGeometry = new THREE.BoxGeometry(
+          size.x * 0.8, // Smaller to represent subtraction
+          size.y * 0.8,
+          size.z * 0.8
+        );
+        resultMaterial = new THREE.MeshStandardMaterial({ 
+          color: 0xFF5722, // Orange for subtraction
+          transparent: true,
+          opacity: 0.9
+        });
+        resultPosition = objectA.position.clone();
         break;
         
       case 'intersect':
-        // Simple intersection - create geometry at intersection
-        resultGeometry = new THREE.SphereGeometry(
-          Math.min(objectA.scale.x, objectB.scale.x) * 0.8,
-          32, 32
+        // Intersection - create geometry at the overlap
+        const intersectionSize = new THREE.Vector3(
+          Math.min(boxA.max.x, boxB.max.x) - Math.max(boxA.min.x, boxB.min.x),
+          Math.min(boxA.max.y, boxB.max.y) - Math.max(boxA.min.y, boxB.min.y),
+          Math.min(boxA.max.z, boxB.max.z) - Math.max(boxA.min.z, boxB.min.z)
         );
-        resultMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0xaaaaaa,
-          transparent: true,
-          opacity: 0.7
-        });
+        
+        // Only create intersection if there's actual overlap
+        if (intersectionSize.x > 0 && intersectionSize.y > 0 && intersectionSize.z > 0) {
+          resultGeometry = new THREE.BoxGeometry(
+            intersectionSize.x,
+            intersectionSize.y,
+            intersectionSize.z
+          );
+          resultMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x2196F3, // Blue for intersection
+            transparent: true,
+            opacity: 0.9
+          });
+          resultPosition = new THREE.Vector3(
+            (Math.max(boxA.min.x, boxB.min.x) + Math.min(boxA.max.x, boxB.max.x)) / 2,
+            (Math.max(boxA.min.y, boxB.min.y) + Math.min(boxA.max.y, boxB.max.y)) / 2,
+            (Math.max(boxA.min.z, boxB.min.z) + Math.min(boxA.max.z, boxB.max.z)) / 2
+          );
+        } else {
+          // No intersection - create a small indicator
+          resultGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+          resultMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xFF0000, // Red for no intersection
+            transparent: true,
+            opacity: 0.8
+          });
+          resultPosition = center;
+        }
         break;
+        
+      case 'split':
+        // Split - create two separate objects
+        const splitResult1 = new THREE.Mesh(
+          objectA.geometry.clone(),
+          new THREE.MeshStandardMaterial({ 
+            color: 0x9C27B0, // Purple for split
+            transparent: true,
+            opacity: 0.9
+          })
+        );
+        const splitResult2 = new THREE.Mesh(
+          objectB.geometry.clone(),
+          new THREE.MeshStandardMaterial({ 
+            color: 0x9C27B0, // Purple for split
+            transparent: true,
+            opacity: 0.9
+          })
+        );
+        
+        // Position the split objects
+        splitResult1.position.copy(objectA.position);
+        splitResult1.rotation.copy(objectA.rotation);
+        splitResult1.scale.copy(objectA.scale);
+        
+        splitResult2.position.copy(objectB.position);
+        splitResult2.rotation.copy(objectB.rotation);
+        splitResult2.scale.copy(objectB.scale);
+        
+        // Set up userData for both objects
+        splitResult1.userData = {
+          type: 'csg-split',
+          id: Date.now(),
+          originalColor: splitResult1.material.color.getHex(),
+          csgOperation: 'split',
+          sourceObjects: [objectA.userData.id, objectB.userData.id],
+          volumeName: `SPLIT_${objectA.userData.volumeName || 'A'}`
+        };
+        
+        splitResult2.userData = {
+          type: 'csg-split',
+          id: Date.now() + 1,
+          originalColor: splitResult2.material.color.getHex(),
+          csgOperation: 'split',
+          sourceObjects: [objectA.userData.id, objectB.userData.id],
+          volumeName: `SPLIT_${objectB.userData.volumeName || 'B'}`
+        };
+        
+        // Add both objects to scene
+        this.refs.sceneGroupRef.current.add(splitResult1);
+        this.refs.sceneGroupRef.current.add(splitResult2);
+        this.refs.geometriesRef.current.push(splitResult1);
+        this.refs.geometriesRef.current.push(splitResult2);
+        
+        // Remove original objects
+        this.deleteGeometry(objectA);
+        this.deleteGeometry(objectB);
+        
+        // Return the first split object (for selection)
+        return splitResult1;
         
       default:
         console.warn('Unknown CSG operation:', operation);
         return null;
     }
 
-    // Create the result mesh
+    // Create the result mesh (only for non-split operations)
     const resultMesh = new THREE.Mesh(resultGeometry, resultMaterial);
     
-    // Position at midpoint between objects
-    resultMesh.position.copy(
-      new THREE.Vector3().addVectors(objectA.position, objectB.position).multiplyScalar(0.5)
-    );
+    // Position the result mesh
+    resultMesh.position.copy(resultPosition);
     
     resultMesh.castShadow = true;
     resultMesh.receiveShadow = true;
@@ -347,6 +557,11 @@ export default class GeometryManager {
     // Remove original objects
     this.deleteGeometry(objectA);
     this.deleteGeometry(objectB);
+    
+    // Auto-save scene after CSG operation
+    if (this.modules?.persistenceManager) {
+      this.modules.persistenceManager.saveScene();
+    }
     
     return resultMesh;
   }

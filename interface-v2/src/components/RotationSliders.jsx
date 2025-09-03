@@ -107,7 +107,7 @@ export default function RotationSliders({ onRotationChange }) {
     
     // Keep within screen bounds with margins
     const margin = 20;
-    const panelWidth = isMinimized ? 160 : 192; // w-40 = 160px, w-48 = 192px
+    const panelWidth = isMinimized ? 160 : 160; // w-40 = 160px (same as GeometrySelector)
     const panelHeight = isMinimized ? 32 : 300; // approximate panel height
     const maxX = window.innerWidth - panelWidth - margin;
     const maxY = window.innerHeight - panelHeight - margin;
@@ -189,7 +189,7 @@ export default function RotationSliders({ onRotationChange }) {
     <div 
       ref={panelRef}
       className={`rounded-md bg-neutral-700 pointer-events-auto absolute ${
-        isMinimized ? 'w-40 h-8' : 'w-48'
+        isMinimized ? 'w-40 h-8' : 'w-40'
       }`}
       style={{
         left: `${position.x}px`,

@@ -194,6 +194,8 @@ export default function ThreeScene({
   useEffect(() => {
     if (eventHandler.current) {
       eventHandler.current.handleToolChange(selectedTool);
+    } else {
+      console.warn('EventHandler not available for tool change');
     }
   }, [selectedTool]);
   
@@ -202,12 +204,23 @@ export default function ThreeScene({
     if (cameraController.current) {
       window.setAxisView = (axis) => cameraController.current.setAxisView(axis);
       window.setZoomLevel = (zoom) => cameraController.current.setZoomLevel(zoom);
+      window.togglePerspective = () => cameraController.current.togglePerspective();
+      window.getCameraPosition = () => {
+        const camera = cameraController.current.getActiveCamera();
+        return camera ? camera.position : { x: 0, y: 5, z: 10 };
+      };
+      window.getCameraRotation = () => {
+        const camera = cameraController.current.getActiveCamera();
+        return camera ? camera.rotation : { x: 0, y: 0, z: 0 };
+      };
     }
     
     if (viewManager.current) {
       window.setViewMode = (mode) => viewManager.current.changeViewMode(mode);
       window.setMaterialMode = (mode) => viewManager.current.changeMaterialMode(mode);
       window.handleViewMenuAction = (action) => viewManager.current.handleViewMenuAction(action);
+      window.getViewMode = () => viewMode;
+      window.getMaterialMode = () => materialMode;
     }
     
     if (persistenceManager.current) {
@@ -218,15 +231,40 @@ export default function ThreeScene({
     if (cameraController.current) {
       window.setSceneRotation = (rotation) => cameraController.current.setSceneRotation(rotation);
     }
-  }, []);
+    
+    // Expose geometry creation from data function
+    if (geometryManager.current) {
+      window.createGeometryFromData = (objData) => {
+        try {
+          const geometry = geometryManager.current.createGeometryFromData(objData);
+          if (geometry && eventHandler.current) {
+            // Auto-select the newly created geometry
+            eventHandler.current.selectGeometry(geometry);
+          }
+          return geometry;
+        } catch (error) {
+          console.error('Error creating geometry from data:', error);
+          return null;
+        }
+      };
+    }
+  }, [viewMode, materialMode]);
   
   return (
-    <canvas 
-      ref={canvasRef} 
-      style={{ display: 'block', width: '100%', height: '100%', outline: 'none' }}
-      onDragOver={(e) => eventHandler.current?.handleDragOver(e)}
-      onDragLeave={(e) => eventHandler.current?.handleDragLeave(e)}
-      onDrop={(e) => eventHandler.current?.handleDrop(e)}
-    />
+    <div className="w-full h-full relative">
+      <canvas 
+        ref={canvasRef} 
+        style={{ 
+          display: 'block', 
+          width: '100%', 
+          height: '100%', 
+          outline: 'none',
+          touchAction: 'none' // Prevent default touch behaviors on mobile
+        }}
+        onDragOver={(e) => eventHandler.current?.handleDragOver(e)}
+        onDragLeave={(e) => eventHandler.current?.handleDragLeave(e)}
+        onDrop={(e) => eventHandler.current?.handleDrop(e)}
+      />
+    </div>
   );
 }
