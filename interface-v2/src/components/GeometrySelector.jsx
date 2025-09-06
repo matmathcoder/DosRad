@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Box, Eclipse, Cylinder, Cone, X, Maximize2, Minus, Move } from 'lucide-react';
-import collisionDetector from '../utils/collisionDetection';
 
-export default function GeometrySelector({ onGeometrySelect }) {
+export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'left' }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   
@@ -256,23 +255,15 @@ export default function GeometrySelector({ onGeometrySelect }) {
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
     
-    // Check if the new position is safe (no collision and within bounds)
+    // Basic boundary checking - keep within screen bounds
     const componentWidth = isMaximized ? 320 : 160;
     const componentHeight = isMinimized ? 32 : (isMaximized ? 320 : 160);
+    const margin = 20;
     
-    const isSafe = collisionDetector.isPositionSafe(
-      'geometrySelector',
-      { x: newX, y: newY },
-      componentWidth,
-      componentHeight,
-      window.innerWidth,
-      window.innerHeight
-    );
+    const boundedX = Math.max(margin, Math.min(newX, window.innerWidth - componentWidth - margin));
+    const boundedY = Math.max(60, Math.min(newY, window.innerHeight - componentHeight - margin)); // 60px for navigation
     
-    // Only update position if it's safe
-    if (isSafe) {
-      setPosition({ x: newX, y: newY });
-    }
+    setPosition({ x: boundedX, y: boundedY });
   };
 
   const handleMouseUp = () => {
@@ -290,21 +281,50 @@ export default function GeometrySelector({ onGeometrySelect }) {
     }
   }, [isDragging]);
 
-  // Register with collision detector
-  useEffect(() => {
-    const getBounds = () => ({
-      x: position.x,
-      y: position.y,
-      width: isMaximized ? 320 : 160,
-      height: isMinimized ? 32 : (isMaximized ? 320 : 160)
-    });
 
-    collisionDetector.registerComponent('geometrySelector', getBounds);
+  // Expose reset position function to window
+  useEffect(() => {
+    window.resetGeometrySelectorPosition = (newPosition) => {
+      setPosition(newPosition);
+    };
 
     return () => {
-      collisionDetector.unregisterComponent('geometrySelector');
+      delete window.resetGeometrySelectorPosition;
     };
-  }, [position, isMinimized, isMaximized]);
+  }, []);
+
+  // Position Geometry Selector next to Directory
+  useEffect(() => {
+    const getPositionNextToDirectory = (directoryPosition) => {
+      const directoryWidth = 350; // Directory width
+      const geometryWidth = 160; // Geometry Selector width
+      const margin = 8; // Small gap between components
+      
+      const positions = {
+        'left': { 
+          x: directoryWidth + margin, // To the right of Directory
+          y: 84 // Same level as Directory (top-16 = 64px + 20px margin)
+        },
+        'right': { 
+          x: window.innerWidth - directoryWidth - geometryWidth - margin, // To the left of Directory
+          y: 84 // Same level as Directory
+        },
+        'top': { 
+          x: (window.innerWidth - geometryWidth) / 2, // Center horizontally
+          y: 64 + 300 + margin // Below Directory when it's at top (64px navbar + 300px directory + margin)
+        },
+        'bottom': { 
+          x: (window.innerWidth - geometryWidth) / 2, // Center horizontally
+          y: window.innerHeight - 300 - geometryWidth - margin // Above Directory when it's at bottom
+        }
+      };
+      return positions[directoryPosition] || positions['left'];
+    };
+
+    const newPosition = getPositionNextToDirectory(layoutPosition);
+    setPosition(newPosition);
+  }, [layoutPosition]);
+
 
   return (
     <div 
@@ -315,7 +335,8 @@ export default function GeometrySelector({ onGeometrySelect }) {
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        cursor: isDragging ? 'grabbing' : 'default'
+        cursor: isDragging ? 'grabbing' : 'default',
+        zIndex: 30
       }}
       onMouseDown={handleMouseDown}
     >

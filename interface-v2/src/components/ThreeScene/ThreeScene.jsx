@@ -19,7 +19,14 @@ export default function ThreeScene({
   onAxisChange, 
   onViewModeChange,
   onGeometryDeleted,
-  onGeometryVisibilityChanged
+  onGeometryVisibilityChanged,
+  onGeometryChanged,
+  existingCompositions = [],
+  existingSensors = [],
+  existingSpectra = [],
+  onCompositionsChange,
+  onSensorsChange,
+  onSpectraChange
 }) {
   const canvasRef = useRef();
   
@@ -107,7 +114,13 @@ export default function ThreeScene({
       setShowCutPlane,
       showSolidAngleLines,
       setShowSolidAngleLines,
-      selectedToolRef
+      selectedToolRef,
+      compositions: existingCompositions,
+      setCompositions: onCompositionsChange,
+      sensors: existingSensors,
+      setSensors: onSensorsChange,
+      spectra: existingSpectra,
+      setSpectra: onSpectraChange
     };
     
     const callbacks = {
@@ -118,6 +131,12 @@ export default function ThreeScene({
       onViewModeChange,
       onGeometryDeleted,
       onGeometryVisibilityChanged,
+      onGeometryChanged,
+      detachTransformControls: () => {
+        if (eventHandler.current) {
+          eventHandler.current.detachTransformControls();
+        }
+      },
       onContextMenuShow: (data) => {
         setContextMenuVisible(data.visible);
         setContextMenuPosition(data.position);
@@ -277,6 +296,15 @@ export default function ThreeScene({
     if (persistenceManager.current) {
       window.saveScene = () => persistenceManager.current.saveScene();
       window.clearSavedScene = () => persistenceManager.current.clearScene();
+      window.clearScene = () => {
+        // Clear all geometries from the scene
+        if (geometryManager.current) {
+          const geometries = geometryManager.current.refs.geometriesRef.current;
+          geometries.forEach(geometry => {
+            geometryManager.current.deleteGeometry(geometry);
+          });
+        }
+      };
     }
     
     if (cameraController.current) {
@@ -377,6 +405,99 @@ export default function ThreeScene({
           return false;
         } catch (error) {
           console.error('Error updating geometry name:', error);
+          return false;
+        }
+      };
+      
+      // Expose function to update geometry position
+      window.updateGeometryPosition = (geometryId, newPosition) => {
+        try {
+          const geometries = geometriesRef.current;
+          const geometry = geometries.find(g => g.userData?.id === geometryId);
+          if (geometry) {
+            geometry.position.set(newPosition.x, newPosition.y, newPosition.z);
+            geometry.updateMatrixWorld();
+            
+            // Trigger geometry change callback
+            if (callbacks.onGeometryChanged) {
+              callbacks.onGeometryChanged(geometryId, {
+                position: newPosition,
+                scale: geometry.scale,
+                rotation: geometry.rotation
+              });
+            }
+            
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error('Error updating geometry position:', error);
+          return false;
+        }
+      };
+      
+      // Expose function to update geometry scale
+      window.updateGeometryScale = (geometryId, newScale) => {
+        try {
+          const geometries = geometriesRef.current;
+          const geometry = geometries.find(g => g.userData?.id === geometryId);
+          if (geometry) {
+            geometry.scale.set(newScale.x, newScale.y, newScale.z);
+            geometry.updateMatrixWorld();
+            
+            // Trigger geometry change callback
+            if (callbacks.onGeometryChanged) {
+              callbacks.onGeometryChanged(geometryId, {
+                position: geometry.position,
+                scale: newScale,
+                rotation: geometry.rotation
+              });
+            }
+            
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error('Error updating geometry scale:', error);
+          return false;
+        }
+      };
+      
+      // Expose function to update geometry coordinates (general)
+      window.updateGeometryCoordinates = (geometryId, coordinates) => {
+        try {
+          const geometries = geometriesRef.current;
+          const geometry = geometries.find(g => g.userData?.id === geometryId);
+          if (geometry) {
+            // Update position
+            geometry.position.set(coordinates.x1, coordinates.y1, coordinates.z1);
+            
+            // Update scale based on geometry type
+            const geometryType = geometry.userData?.type;
+            if (geometryType === 'box' || geometryType === 'cube') {
+              geometry.scale.set(coordinates.x2, coordinates.y2, coordinates.z2);
+            } else if (geometryType === 'sphere') {
+              geometry.scale.set(coordinates.r1, coordinates.r1, coordinates.r1);
+            } else if (geometryType === 'cylinder' || geometryType === 'cone') {
+              geometry.scale.set(coordinates.r1, coordinates.r1, coordinates.z2);
+            }
+            
+            geometry.updateMatrixWorld();
+            
+            // Trigger geometry change callback to update parent state
+            if (callbacks.onGeometryChanged) {
+              callbacks.onGeometryChanged(geometryId, {
+                position: { x: coordinates.x1, y: coordinates.y1, z: coordinates.z1 },
+                scale: geometry.scale,
+                rotation: geometry.rotation
+              });
+            }
+            
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error('Error updating geometry coordinates:', error);
           return false;
         }
       };

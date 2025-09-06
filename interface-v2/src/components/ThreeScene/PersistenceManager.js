@@ -5,8 +5,13 @@ export default class PersistenceManager {
     this.refs = refs;
     this.state = state;
     this.callbacks = callbacks;
+    this.modules = null;
     
     this.autoSaveInterval = null;
+  }
+  
+  setModules(modules) {
+    this.modules = modules;
   }
   
   saveSceneToLocalStorage() {
@@ -30,8 +35,33 @@ export default class PersistenceManager {
             z: mesh.scale.z
           },
           id: mesh.userData.id,
-          originalColor: mesh.userData.originalColor
+          originalColor: mesh.userData.originalColor,
+          volumeName: mesh.userData.volumeName || `Volume_${mesh.userData.id}`,
+          // Include geometry parameters for proper restoration
+          geometry: {
+            type: mesh.userData.type,
+            parameters: mesh.userData.geometryParameters || {}
+          },
+          // Include volume data structure for proper restoration
+          volume: {
+            type: mesh.userData.volumeType || 'Unknown',
+            composition: mesh.userData.composition || null,
+            realDensity: mesh.userData.realDensity || 0,
+            tolerance: mesh.userData.tolerance || 0,
+            isSource: mesh.userData.isSource || false,
+            calculation: mesh.userData.calculation || null,
+            gammaSelectionMode: mesh.userData.gammaSelectionMode || null,
+            spectrum: mesh.userData.spectrum || null
+          },
+          // Include additional userData for persistence
+          userData: mesh.userData,
+          visible: mesh.userData.visible !== false
         })),
+        // Include compositions, sensors, sources, and spectra
+        compositions: this.state.compositions || [],
+        sensors: this.state.sensors || [],
+        sources: this.state.sources || [],
+        spectra: this.state.spectra || [],
         camera: this.getCameraData(),
         sceneSettings: {
           viewMode: this.state.viewMode,
@@ -94,54 +124,114 @@ export default class PersistenceManager {
     });
     this.refs.geometriesRef.current.length = 0;
     
-    // Restore saved geometries
+    // Restore saved geometries using the same method as createGeometryFromData
     savedGeometries.forEach(geometryData => {
-      let geometry, material;
-      
-      switch (geometryData.type) {
-        case 'cube':
-          geometry = new THREE.BoxGeometry(1, 1, 1);
-          material = new THREE.MeshStandardMaterial({ color: geometryData.originalColor });
-          break;
-        case 'sphere':
-          geometry = new THREE.SphereGeometry(0.5, 32, 32);
-          material = new THREE.MeshStandardMaterial({ color: geometryData.originalColor });
-          break;
-        case 'cylinder':
-          geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32);
-          material = new THREE.MeshStandardMaterial({ color: geometryData.originalColor });
-          break;
-        case 'cone':
-          geometry = new THREE.ConeGeometry(0.5, 1, 32);
-          material = new THREE.MeshStandardMaterial({ color: geometryData.originalColor });
-          break;
-        default:
-          return;
+      // Use the existing createGeometryFromData method for proper restoration
+      if (this.modules?.geometryManager) {
+        const objData = {
+          type: geometryData.type,
+          geometry: geometryData.geometry || { type: geometryData.type, parameters: {} },
+          position: geometryData.position,
+          rotation: geometryData.rotation,
+          scale: geometryData.scale,
+          userData: geometryData.userData,
+          volume: geometryData.volume,
+          visible: geometryData.visible !== false,
+          name: geometryData.volumeName
+        };
+        
+        const mesh = this.modules.geometryManager.createGeometryFromData(objData);
+        if (mesh) {
+          this.refs.sceneGroupRef.current.add(mesh);
+          this.refs.geometriesRef.current.push(mesh);
+        }
+      } else {
+        // Fallback to basic restoration if geometryManager is not available
+        this.restoreGeometryBasic(geometryData);
       }
-      
-      const mesh = new THREE.Mesh(geometry, material);
-      
-      // Restore position, rotation, and scale
-      mesh.position.set(geometryData.position.x, geometryData.position.y, geometryData.position.z);
-      mesh.rotation.set(geometryData.rotation.x, geometryData.rotation.y, geometryData.rotation.z);
-      mesh.scale.set(geometryData.scale.x, geometryData.scale.y, geometryData.scale.z);
-      
-      // Restore properties
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.userData = {
-        type: geometryData.type,
-        id: geometryData.id,
-        originalColor: geometryData.originalColor
-      };
-      
-      // Apply current material and view modes
-      this.applyMaterialMode(mesh, this.state.materialMode);
-      this.applyViewMode(mesh, this.state.viewMode);
-      
-      this.refs.sceneGroupRef.current.add(mesh);
-      this.refs.geometriesRef.current.push(mesh);
     });
+  }
+  
+  restoreGeometryBasic(geometryData) {
+    let geometry, material;
+    
+    // Use saved geometry parameters if available, otherwise use defaults
+    const params = geometryData.geometry?.parameters || {};
+    
+    switch (geometryData.type) {
+      case 'cube':
+      case 'box':
+        geometry = new THREE.BoxGeometry(
+          params.width || 1,
+          params.height || 1,
+          params.depth || 1
+        );
+        break;
+      case 'sphere':
+        geometry = new THREE.SphereGeometry(
+          params.radius || 0.5,
+          params.widthSegments || 32,
+          params.heightSegments || 32
+        );
+        break;
+      case 'cylinder':
+        geometry = new THREE.CylinderGeometry(
+          params.radiusTop || 0.5,
+          params.radiusBottom || 0.5,
+          params.height || 1,
+          params.radialSegments || 32
+        );
+        break;
+      case 'cone':
+        geometry = new THREE.ConeGeometry(
+          params.radius || 0.5,
+          params.height || 1,
+          params.radialSegments || 32
+        );
+        break;
+      default:
+        return;
+    }
+    
+    // Create material with proper color and properties
+    material = new THREE.MeshStandardMaterial({ 
+      color: geometryData.originalColor || 0x404040 
+    });
+    
+    const mesh = new THREE.Mesh(geometry, material);
+    
+    // Restore position, rotation, and scale
+    mesh.position.set(geometryData.position.x, geometryData.position.y, geometryData.position.z);
+    mesh.rotation.set(geometryData.rotation.x, geometryData.rotation.y, geometryData.rotation.z);
+    mesh.scale.set(geometryData.scale.x, geometryData.scale.y, geometryData.scale.z);
+    
+    // Restore properties
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData = {
+      type: geometryData.type,
+      id: geometryData.id,
+      originalColor: geometryData.originalColor,
+      volumeName: geometryData.volumeName || `Volume_${geometryData.id}`,
+      geometryParameters: geometryData.geometry?.parameters || {},
+      volumeType: geometryData.volume?.type || 'Unknown',
+      composition: geometryData.volume?.composition || null,
+      realDensity: geometryData.volume?.realDensity || 0,
+      tolerance: geometryData.volume?.tolerance || 0,
+      isSource: geometryData.volume?.isSource || false,
+      calculation: geometryData.volume?.calculation || null,
+      gammaSelectionMode: geometryData.volume?.gammaSelectionMode || null,
+      spectrum: geometryData.volume?.spectrum || null,
+      visible: geometryData.visible !== false,
+      ...geometryData.userData
+    };
+    
+    // Apply current material and view modes
+    this.applyMaterialMode(mesh, this.state.materialMode);
+    this.applyViewMode(mesh, this.state.viewMode);
+    
+    this.refs.sceneGroupRef.current.add(mesh);
+    this.refs.geometriesRef.current.push(mesh);
   }
   
   applyMaterialMode(mesh, materialMode) {
@@ -181,6 +271,23 @@ export default class PersistenceManager {
     // Restore geometries
     if (sceneData.geometries) {
       this.restoreGeometries(sceneData.geometries);
+    }
+    
+    // Restore compositions, sensors, sources, and spectra
+    if (sceneData.compositions && this.state.setCompositions) {
+      this.state.setCompositions(sceneData.compositions);
+    }
+    
+    if (sceneData.sensors && this.state.setSensors) {
+      this.state.setSensors(sceneData.sensors);
+    }
+    
+    if (sceneData.sources && this.state.setSources) {
+      this.state.setSources(sceneData.sources);
+    }
+    
+    if (sceneData.spectra && this.state.setSpectra) {
+      this.state.setSpectra(sceneData.spectra);
     }
     
     // Restore scene settings

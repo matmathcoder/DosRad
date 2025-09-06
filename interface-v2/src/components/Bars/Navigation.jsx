@@ -5,6 +5,9 @@ import Signup from '../Profile/Signup';
 import Profile from '../Profile/Profile';
 import { useAuth } from '../../contexts/AuthContext';
 import { exportMultipleObjectsToOBJ, downloadOBJ } from '../../utils/objExporter';
+import MeshPanel from '../Navigation/Edit/VolumeForm/MeshPanel';
+import ComputationPanel from '../Navigation/Scene/ComputationPanel';
+import GenerateScenePanel from '../Navigation/Scene/GenerateScenePanel';
 
 export default function Navigation({ 
   onShowVolumeForm, 
@@ -23,7 +26,11 @@ export default function Navigation({
   onCreateNewProject,
   onExportImage,
   onToggleComponentVisibility,
-  sceneData
+  sceneData,
+  selectedVolume,
+  onMeshValidate,
+  onComputationComplete,
+  onSceneGenerated
 }) {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [activeSubDropdown, setActiveSubDropdown] = useState(null);
@@ -47,6 +54,11 @@ export default function Navigation({
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
   const { user, login, signup, logout } = useAuth();
+
+  // Panel visibility states
+  const [showMeshPanel, setShowMeshPanel] = useState(false);
+  const [showComputationPanel, setShowComputationPanel] = useState(false);
+  const [showGenerateScenePanel, setShowGenerateScenePanel] = useState(false);
 
   const menuStructure = {
     File: [
@@ -89,6 +101,9 @@ export default function Navigation({
     Scene: [
       'Generate Scene...',
       'Start Computation'
+    ],
+    Mesh: [
+      'Configure Mesh...'
     ],
     View: [
       'Mesh',
@@ -167,6 +182,15 @@ export default function Navigation({
         if (onShowCompoundVolume) {
           onShowCompoundVolume();
         }
+        break;
+      case 'Generate Scene...':
+        setShowGenerateScenePanel(true);
+        break;
+      case 'Start Computation':
+        setShowComputationPanel(true);
+        break;
+      case 'Configure Mesh...':
+        setShowMeshPanel(true);
         break;
       default:
         // Handle View menu actions
@@ -878,8 +902,17 @@ export default function Navigation({
       <div className="flex justify-between items-center">
         {/* Left side - Logo and Menu items */}
         <div className="flex items-center">
+          {/* INVAP Logo */}
+          <div className="flex items-center mr-4">
+            <img 
+              src="/INVAP.webp" 
+              alt="INVAP Logo" 
+              className="absolute left-0 w-24 h-20 object-contain"
+            />
+          </div>
+          
           {/* Menu items */}
-          <ul className="flex text-[13px]">
+          <ul className="flex text-[13px] ml-20">
             {Object.keys(menuStructure).map((menuName) => (
             <li key={menuName} className="relative">
               <button
@@ -1027,6 +1060,36 @@ export default function Navigation({
           onClose={() => setShowSignup(false)}
           onSwitchToLogin={handleSwitchToLogin}
           onSignupSuccess={handleSignupSuccess}
+        />
+      )}
+
+      {/* Mesh Panel */}
+      {showMeshPanel && (
+        <MeshPanel
+          isVisible={showMeshPanel}
+          onClose={() => setShowMeshPanel(false)}
+          selectedVolume={selectedVolume}
+          onMeshValidate={onMeshValidate}
+        />
+      )}
+
+      {/* Computation Panel */}
+      {showComputationPanel && (
+        <ComputationPanel
+          isVisible={showComputationPanel}
+          onClose={() => setShowComputationPanel(false)}
+          sceneData={sceneData}
+          onComputationComplete={onComputationComplete}
+        />
+      )}
+
+      {/* Generate Scene Panel */}
+      {showGenerateScenePanel && (
+        <GenerateScenePanel
+          isVisible={showGenerateScenePanel}
+          onClose={() => setShowGenerateScenePanel(false)}
+          sceneData={sceneData}
+          onSceneGenerated={onSceneGenerated}
         />
       )}
     </nav>

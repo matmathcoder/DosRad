@@ -229,6 +229,17 @@ export default function LineSpectrumPanel({
 
   if (!isVisible) return null;
 
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('component-type', 'line-spectrum-panel');
+    e.dataTransfer.setData('component-data', JSON.stringify({
+      name: 'Line Spectrum Panel',
+      type: 'line-spectrum-panel',
+      spectrumData,
+      selectedLineIndex
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
   return (
     <div 
       ref={formRef}
@@ -236,9 +247,12 @@ export default function LineSpectrumPanel({
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        cursor: isDragging ? 'grabbing' : 'default'
+        cursor: isDragging ? 'grabbing' : 'default',
+        zIndex: 50
       }}
       onMouseDown={handleMouseDown}
+      draggable="true"
+      onDragStart={handleDragStart}
     >
       {/* Header */}
       <div className="flex items-center justify-between bg-neutral-700 rounded-t-lg px-4 py-3 drag-handle cursor-grab">

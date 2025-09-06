@@ -84,9 +84,11 @@ export default function RotationSliders({ onRotationChange }) {
   // Panel dragging functions
   const handleMouseDown = (e) => {
     // Only start panel dragging if clicking on the drag handle and not on wheel controls or buttons
+    // But don't interfere with HTML5 drag and drop on the title bar
     if (e.target.closest('.drag-handle') && 
         !e.target.closest('.wheel-control') && 
-        !e.target.closest('button')) {
+        !e.target.closest('button') &&
+        !e.target.closest('[draggable="true"]')) {
       e.preventDefault();
       e.stopPropagation();
       setIsPanelDragging(true);
@@ -185,6 +187,19 @@ export default function RotationSliders({ onRotationChange }) {
     </div>
   );
 
+  const handleDragStart = (e) => {
+    console.log('RotationSliders: Starting drag');
+    e.dataTransfer.setData('component-type', 'rotation-sliders');
+    e.dataTransfer.setData('component-data', JSON.stringify({
+      name: 'Scene Rotation',
+      type: 'rotation-sliders',
+      horizontalRotation,
+      verticalRotation
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+    console.log('RotationSliders: Drag data set', e.dataTransfer.types);
+  };
+
   return (
     <div 
       ref={panelRef}
@@ -194,12 +209,17 @@ export default function RotationSliders({ onRotationChange }) {
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        cursor: isPanelDragging ? 'grabbing' : 'default'
+        cursor: isPanelDragging ? 'grabbing' : 'default',
+        zIndex: 50
       }}
       onMouseDown={handleMouseDown}
     >
       {/* Title Bar */}
-      <div className="flex items-center justify-between bg-neutral-800 rounded-t-md px-3 py-1 drag-handle cursor-grab">
+      <div 
+        className="flex items-center justify-between bg-neutral-800 rounded-t-md px-3 py-1 drag-handle cursor-grab"
+        draggable="true"
+        onDragStart={handleDragStart}
+      >
         <div className="flex items-center space-x-2">
           <Move size={12} className="text-neutral-400" />
           <span className="text-white text-xs font-medium">Scene Rotation</span>

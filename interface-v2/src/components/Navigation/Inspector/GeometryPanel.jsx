@@ -30,6 +30,36 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
     x1: 0, y1: 0, z1: 0, x2: 0, y2: 0, z2: 0, r1: 0, r2: 0
   });
 
+  // Initialize coordinates when selectedGeometry changes
+  useEffect(() => {
+    if (selectedGeometry) {
+      // Map the selected geometry data to coordinate fields
+      const newCoordinates = {
+        x1: selectedGeometry.position?.x || 0,
+        y1: selectedGeometry.position?.y || 0,
+        z1: selectedGeometry.position?.z || 0,
+        x2: 0, y2: 0, z2: 0, r1: 0, r2: 0
+      };
+
+      // Set geometry-specific coordinates based on type
+      if (selectedGeometry.type === 'box' || selectedGeometry.type === 'cube') {
+        // For box: x1,y1,z1 are position, x2,y2,z2 are dimensions
+        newCoordinates.x2 = selectedGeometry.scale?.x || 1;
+        newCoordinates.y2 = selectedGeometry.scale?.y || 1;
+        newCoordinates.z2 = selectedGeometry.scale?.z || 1;
+      } else if (selectedGeometry.type === 'sphere') {
+        // For sphere: x1,y1,z1 are center, r1 is radius
+        newCoordinates.r1 = selectedGeometry.scale?.x || 0.5;
+      } else if (selectedGeometry.type === 'cylinder' || selectedGeometry.type === 'cone') {
+        // For cylinder/cone: x1,y1,z1 are base position, z2 is height, r1 is radius
+        newCoordinates.z2 = selectedGeometry.scale?.z || 1;
+        newCoordinates.r1 = selectedGeometry.scale?.x || 0.5;
+      }
+
+      setCoordinates(newCoordinates);
+    }
+  }, [selectedGeometry]);
+
   // Links data
   const [links, setLinks] = useState({
     x1: { volume: '', data: '', distance: 0, linked: false },
@@ -121,10 +151,20 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
   };
 
   const handleCoordinateChange = (field, value) => {
+    const newValue = parseFloat(value) || 0;
     setCoordinates(prev => ({
       ...prev,
-      [field]: parseFloat(value) || 0
+      [field]: newValue
     }));
+
+    // Real-time update to 3D scene
+    if (selectedGeometry && window.updateGeometryCoordinates) {
+      const updatedCoordinates = {
+        ...coordinates,
+        [field]: newValue
+      };
+      window.updateGeometryCoordinates(selectedGeometry.id, updatedCoordinates);
+    }
   };
 
   const handleLinkChange = (field, property, value) => {
@@ -486,14 +526,83 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
         </div>
 
         <div className="text-xs text-neutral-400 bg-neutral-750 rounded p-2">
-          <strong>Note:</strong> "+" contribution increases result, "-" reduces result.
-          Define tolerance ranges for min/max calculations.
+          <strong>Note:</strong> Tolerance affects dose calculations:
+          <br />
+          • <strong>+ Delta with Contrib -</strong>: Thicker attenuator → Lower dose
+          <br />
+          • <strong>- Delta with Contrib +</strong>: Thinner attenuator → Higher dose
+          <br />
+          <br />
+          <strong>Example:</strong> Attenuator thickness R1 = 15cm
+          <br />
+          + Delta = 3cm (Contrib -) → R1 = 18cm (thicker, lower dose)
+          <br />
+          - Delta = 1cm (Contrib +) → R1 = 14cm (thinner, higher dose)
         </div>
       </div>
     );
   };
 
   const handleSave = () => {
+    if (!selectedGeometry) return;
+
+    // Apply coordinate changes to the 3D scene
+    if (window.updateGeometryCoordinates) {
+      const success = window.updateGeometryCoordinates(selectedGeometry.id, coordinates);
+      if (success) {
+        console.log('Geometry coordinates updated successfully');
+      } else {
+        console.error('Failed to update geometry coordinates');
+      }
+    }
+
+    // Apply position changes
+    if (window.updateGeometryPosition) {
+      const newPosition = {
+        x: coordinates.x1,
+        y: coordinates.y1,
+        z: coordinates.z1
+      };
+      const success = window.updateGeometryPosition(selectedGeometry.id, newPosition);
+      if (success) {
+        console.log('Geometry position updated successfully');
+      } else {
+        console.error('Failed to update geometry position');
+      }
+    }
+
+    // Apply scale changes based on geometry type
+    if (window.updateGeometryScale) {
+      let newScale = { x: 1, y: 1, z: 1 };
+      
+      if (selectedGeometry.type === 'box' || selectedGeometry.type === 'cube') {
+        newScale = {
+          x: coordinates.x2,
+          y: coordinates.y2,
+          z: coordinates.z2
+        };
+      } else if (selectedGeometry.type === 'sphere') {
+        newScale = {
+          x: coordinates.r1,
+          y: coordinates.r1,
+          z: coordinates.r1
+        };
+      } else if (selectedGeometry.type === 'cylinder' || selectedGeometry.type === 'cone') {
+        newScale = {
+          x: coordinates.r1,
+          y: coordinates.r1,
+          z: coordinates.z2
+        };
+      }
+
+      const success = window.updateGeometryScale(selectedGeometry.id, newScale);
+      if (success) {
+        console.log('Geometry scale updated successfully');
+      } else {
+        console.error('Failed to update geometry scale');
+      }
+    }
+
     const geometryData = {
       type: selectedGeometry?.type,
       coordinates,
@@ -501,7 +610,8 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
       deltas,
       predominatingVolume: intersectionWarning ? predominatingVolume : null
     };
- onClose(geometryData);
+    
+    onClose(geometryData);
   };
 
   // Dragging functions
@@ -551,6 +661,17 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
 
   if (!isOpen) return null;
 
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('component-type', 'geometry-panel');
+    e.dataTransfer.setData('component-data', JSON.stringify({
+      name: 'Geometry Panel',
+      type: 'geometry-panel',
+      selectedGeometry,
+      activeTab
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
   return (
     <>
       <div 
@@ -560,12 +681,14 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
           left: `${position.x}px`,
           top: `${position.y}px`,
           cursor: isDragging ? 'grabbing' : 'default',
-          zIndex: 1000
+          zIndex: 50
         }}
         onMouseDown={handleMouseDown}
         onClick={(e) => {
           e.stopPropagation();
      }}
+        draggable="true"
+        onDragStart={handleDragStart}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-neutral-600 bg-neutral-750 drag-handle cursor-grab">

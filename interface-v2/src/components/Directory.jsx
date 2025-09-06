@@ -17,24 +17,33 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  Move,
   X,
-  Minus
+  Minus,
+  Layers,
+  Package,
+  Rainbow,
+  Dam,
+  RectangleCircle,
+  Atom
 } from 'lucide-react';
-import collisionDetector from '../utils/collisionDetection';
 
 export default function Directory({ 
   isVisible, 
   onClose, 
   existingVolumes = [], 
-  existingSensors = [], 
+  existingSensors = [],
   existingCompositions = [],
   existingSpectra = [],
   onRenameObject,
   onDeleteObject,
   onSelectObject,
   onToggleVisibility,
-  selectedObjectId
+  onClearAllObjects,
+  selectedObjectId,
+  layoutPosition = 'left',
+  dockedComponents = [],
+  onDockComponent,
+  onUndockComponent
 }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({
@@ -43,24 +52,88 @@ export default function Directory({
     sources: true,
     compositions: true,
     sensors: true,
-    spectra: true
+    spectra: true,
+    examples: true
   });
   const [editingItem, setEditingItem] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
+  const [showDockZones, setShowDockZones] = useState(false);
+  const [draggedComponent, setDraggedComponent] = useState(null);
   
-  // Dragging state - Start lower to avoid Geometry Selector
-  const [position, setPosition] = useState({ x: 20, y: 300 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  // Fixed positioning - no dragging or resizing
   const directoryRef = useRef();
-  
-  // Resizing state
-  const [size, setSize] = useState({ width: 350, height: 400 });
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
-  const [resizeDirection, setResizeDirection] = useState('');
+
+  // Debug: Log when existingVolumes changes
+  useEffect(() => {
+    console.log('Directory: existingVolumes updated:', existingVolumes);
+  }, [existingVolumes]);
+
+  // Docking functionality
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Check if we have a valid component being dragged
+    const types = e.dataTransfer.types;
+    console.log('Directory: Drag over, types:', types, 'docked:', dockedComponents.length);
+    if (types && types.includes('component-type') && dockedComponents.length < 3) {
+      setShowDockZones(true);
+      setDraggedComponent('component'); // Generic name since we can't get the actual type yet
+    }
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    console.log('Directory: Drag enter');
+    // Show dock zones if we have space and a valid drag operation
+    if (dockedComponents.length < 3) {
+      setShowDockZones(true);
+      console.log('Directory: Showing dock zones');
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    console.log('Directory: Drag leave', e.relatedTarget);
+    // Only hide dock zones if leaving the directory area completely
+    if (!directoryRef.current?.contains(e.relatedTarget)) {
+      setShowDockZones(false);
+      setDraggedComponent(null);
+      console.log('Directory: Hiding dock zones');
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    console.log('Directory: Drop event triggered');
+    const componentType = e.dataTransfer.getData('component-type');
+    const componentData = e.dataTransfer.getData('component-data');
+    console.log('Directory: Drop data - type:', componentType, 'data:', componentData);
+    
+    if (componentType && dockedComponents.length < 3 && onDockComponent) {
+      try {
+        const data = componentData ? JSON.parse(componentData) : {};
+        console.log('Directory: Docking component:', componentType, data);
+        onDockComponent(componentType, data);
+      } catch (error) {
+        console.error('Error parsing component data:', error);
+        onDockComponent(componentType, {});
+      }
+    } else {
+      console.log('Directory: Drop rejected - type:', componentType, 'docked:', dockedComponents.length, 'onDockComponent:', !!onDockComponent);
+    }
+    
+    setShowDockZones(false);
+    setDraggedComponent(null);
+  };
+
+  const handleUndock = (componentId) => {
+    if (onUndockComponent) {
+      onUndockComponent(componentId);
+    }
+  };
 
   // Get sources (volumes with isSource: true)
   const sources = existingVolumes.filter(volume => volume.userData?.isSource);
@@ -73,203 +146,68 @@ export default function Directory({
       arr.findIndex(c => c.name === comp.name) === index
     );
 
-  const getResizeDirection = (e) => {
-    const rect = directoryRef.current.getBoundingClientRect();
-    const threshold = 8; // pixels from edge to trigger resize
-    
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    let direction = '';
-    
-    // Check if near right edge
-    if (x >= rect.width - threshold) {
-      direction += 'e'; // east
+  // Example compound volumes and contaminated tube
+  const exampleVolumes = [
+    {
+      id: 'contaminated-tube',
+      name: 'TUBTUTOT.PCS',
+      type: 'compound',
+      description: 'Contaminated Steel Tube with UO2 Layer',
+      components: [
+        { name: 'Outer Steel Tube', material: 'Stainless Steel', thickness: '0.5cm' },
+        { name: 'UO2 Source Layer', material: 'Uranium Oxide', thickness: '0.5cm' },
+        { name: 'Air Space', material: 'Air', thickness: 'Variable' }
+      ],
+      dimensions: { length: '0.5m', diameter: '0.2m' },
+      source: 'U-235',
+      visible: true
+    },
+    {
+      id: 'reactor-vessel',
+      name: 'REACTOR_VESSEL.PCS',
+      type: 'compound',
+      description: 'Nuclear Reactor Pressure Vessel',
+      components: [
+        { name: 'Steel Shell', material: 'Carbon Steel', thickness: '15cm' },
+        { name: 'Stainless Steel Liner', material: 'SS304', thickness: '2cm' },
+        { name: 'Concrete Shield', material: 'Heavy Concrete', thickness: '100cm' }
+      ],
+      dimensions: { height: '12m', diameter: '4.5m' },
+      source: 'Mixed Fission Products',
+      visible: true
+    },
+    {
+      id: 'waste-container',
+      name: 'WASTE_CONTAINER.PCS',
+      type: 'compound',
+      description: 'High-Level Waste Storage Container',
+      components: [
+        { name: 'Lead Shield', material: 'Lead', thickness: '20cm' },
+        { name: 'Steel Container', material: 'Stainless Steel', thickness: '5cm' },
+        { name: 'Concrete Overpack', material: 'Reinforced Concrete', thickness: '50cm' }
+      ],
+      dimensions: { height: '2m', diameter: '1.5m' },
+      source: 'Cs-137, Sr-90',
+      visible: true
+    },
+    {
+      id: 'fuel-assembly',
+      name: 'FUEL_ASSEMBLY.PCS',
+      type: 'compound',
+      description: 'Nuclear Fuel Assembly',
+      components: [
+        { name: 'Fuel Rods', material: 'UO2 Pellets', count: '264' },
+        { name: 'Cladding', material: 'Zircaloy-4', thickness: '0.6mm' },
+        { name: 'Assembly Structure', material: 'Zircaloy-4', thickness: '2mm' }
+      ],
+      dimensions: { height: '4.5m', width: '20cm', depth: '20cm' },
+      source: 'U-235, Pu-239',
+      visible: true
     }
-    
-    // Check if near bottom edge
-    if (y >= rect.height - threshold) {
-      direction += 's'; // south
-    }
-    
-    // Check if near left edge
-    if (x <= threshold) {
-      direction += 'w'; // west
-    }
-    
-    // Check if near top edge
-    if (y <= threshold) {
-      direction += 'n'; // north
-    }
-    
-    return direction;
-  };
+  ];
 
-  const getResizeCursor = () => {
-    switch (resizeDirection) {
-      case 'n':
-      case 's':
-        return 'ns-resize';
-      case 'e':
-      case 'w':
-        return 'ew-resize';
-      case 'ne':
-      case 'sw':
-        return 'nesw-resize';
-      case 'nw':
-      case 'se':
-        return 'nwse-resize';
-      default:
-        return 'default';
-    }
-  };
 
-  const getResizeCursorFromDirection = (direction) => {
-    switch (direction) {
-      case 'n':
-      case 's':
-        return 'ns-resize';
-      case 'e':
-      case 'w':
-        return 'ew-resize';
-      case 'ne':
-      case 'sw':
-        return 'nesw-resize';
-      case 'nw':
-      case 'se':
-        return 'nwse-resize';
-      default:
-        return 'default';
-    }
-  };
 
-  const handleMouseDown = (e) => {
-    // Check if clicking on resize handle
-    const resizeDir = getResizeDirection(e);
-    if (resizeDir) {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsResizing(true);
-      setResizeDirection(resizeDir);
-      setResizeStart({
-        x: e.clientX,
-        y: e.clientY,
-        width: size.width,
-        height: size.height
-      });
-      return;
-    }
-    
-    // Check if clicking on drag handle
-    if (e.target.closest('.drag-handle')) {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(true);
-      setDragStart({
-        x: e.clientX - position.x,
-        y: e.clientY - position.y
-      });
-    }
-  };
-
-  const handleMouseMove = (e) => {
-    e.preventDefault();
-    
-    if (isResizing) {
-      const deltaX = e.clientX - resizeStart.x;
-      const deltaY = e.clientY - resizeStart.y;
-      
-      let newWidth = resizeStart.width;
-      let newHeight = resizeStart.height;
-      let newX = position.x;
-      let newY = position.y;
-      
-      // Apply resize based on direction
-      if (resizeDirection.includes('e')) {
-        newWidth = Math.max(200, resizeStart.width + deltaX);
-      }
-      if (resizeDirection.includes('s')) {
-        newHeight = Math.max(200, resizeStart.height + deltaY);
-      }
-      if (resizeDirection.includes('w')) {
-        newWidth = Math.max(200, resizeStart.width - deltaX);
-        newX = position.x + (resizeStart.width - newWidth);
-      }
-      if (resizeDirection.includes('n')) {
-        newHeight = Math.max(200, resizeStart.height - deltaY);
-        newY = position.y + (resizeStart.height - newHeight);
-      }
-      
-      // Check if the new position and size are safe
-      const isSafe = collisionDetector.isPositionSafe(
-        'directory',
-        { x: newX, y: newY },
-        newWidth,
-        newHeight,
-        window.innerWidth,
-        window.innerHeight
-      );
-      
-      if (isSafe) {
-        setSize({ width: newWidth, height: newHeight });
-        setPosition({ x: newX, y: newY });
-      }
-    } else if (isDragging) {
-      const newX = e.clientX - dragStart.x;
-      const newY = e.clientY - dragStart.y;
-      
-      // Check if the new position is safe (no collision and within bounds)
-      const componentWidth = size.width;
-      const componentHeight = isMinimized ? 32 : size.height;
-      
-      const isSafe = collisionDetector.isPositionSafe(
-        'directory',
-        { x: newX, y: newY },
-        componentWidth,
-        componentHeight,
-        window.innerWidth,
-        window.innerHeight
-      );
-      
-      // Only update position if it's safe
-      if (isSafe) {
-        setPosition({ x: newX, y: newY });
-      }
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    setIsResizing(false);
-    setResizeDirection('');
-  };
-
-  useEffect(() => {
-    if (isDragging || isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isDragging, isResizing]);
-
-  // Register with collision detector
-  useEffect(() => {
-    const getBounds = () => ({
-      x: position.x,
-      y: position.y,
-      width: size.width,
-      height: isMinimized ? 32 : size.height
-    });
-
-    collisionDetector.registerComponent('directory', getBounds);
-
-    return () => {
-      collisionDetector.unregisterComponent('directory');
-    };
-  }, [position, size, isMinimized]);
 
   const toggleFolder = (folderName) => {
     setExpandedFolders(prev => ({
@@ -302,6 +240,19 @@ export default function Directory({
     } else if (e.key === 'Escape') {
       cancelEdit();
     }
+  };
+
+  const handleInputKeyDown = (e) => {
+    // Directory has full priority when editing - no scene shortcuts should interfere
+    // Handle editing-specific keys
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+    }
+    // All other keys are handled normally by the input field
   };
 
   const handleRightClick = (e, item) => {
@@ -381,6 +332,12 @@ export default function Directory({
       case 'sphere': return <Eclipse size={14} className="text-green-400" />;
       case 'cylinder': return <Cylinder size={14} className="text-yellow-400" />;
       case 'cone': return <Cone size={14} className="text-purple-400" />;
+      case 'compound': return <Layers size={14} className="text-orange-400" />;
+      case 'source': return <Atom size={14} className="text-red-400" />;
+      case 'composition': return <RectangleCircle size={14} className="text-cyan-400" />;
+      case 'sensor': return <Dam size={14} className="text-yellow-300" />;
+      case 'spectrum': return <Rainbow size={14} className="text-pink-400" />;
+      case 'example': return <Package size={14} className="text-indigo-400" />;
       default: return <Box size={14} className="text-gray-400" />;
     }
   };
@@ -429,7 +386,7 @@ export default function Directory({
                 <Folder size={14} className="text-yellow-400" />
               )
             ) : (
-              getObjectIcon(item.objectType)
+              getObjectIcon(item.objectType || item.type)
             )}
           </div>
           
@@ -440,58 +397,88 @@ export default function Directory({
                 type="text"
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={handleKeyPress}
+                onKeyDown={handleInputKeyDown}
                 onBlur={saveEdit}
                 className="w-full bg-neutral-700 text-white text-xs px-1 py-0.5 rounded border border-neutral-500 focus:outline-none focus:border-blue-400"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <span className="text-white text-xs truncate">{item.name}</span>
+              <div className="flex flex-col">
+                <span className="text-white text-xs truncate">{item.name}</span>
+                {item.description && (
+                  <span className="text-neutral-400 text-xs truncate" title={item.description}>
+                    {item.description}
+                  </span>
+                )}
+              </div>
             )}
           </div>
           
           {/* Action Buttons */}
           {!isEditing && item.type !== 'folder' && (
             <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startEdit(item.id, item.name);
-                }}
-                className="p-1 hover:bg-neutral-500 rounded"
-                title="Rename"
-              >
-                <Edit2 size={10} className="text-neutral-400" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onToggleVisibility) {
-                    onToggleVisibility(item.id, !item.visible);
-                  }
-                }}
-                className="p-1 hover:bg-neutral-500 rounded"
-                title={item.visible ? "Hide" : "Show"}
-              >
-                {item.visible ? (
-                  <Eye size={10} className="text-green-400" />
-                ) : (
-                  <EyeOff size={10} className="text-red-400" />
-                )}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onDeleteObject) {
-                    onDeleteObject(item.id);
-                  }
-                }}
-                className="p-1 hover:bg-neutral-500 rounded"
-                title="Delete"
-              >
-                <Trash2 size={10} className="text-red-400" />
-              </button>
+              {/* Load button for examples */}
+              {item.type === 'example' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectObject) {
+                      onSelectObject(item);
+                    }
+                    // You could add a specific handler for loading examples here
+                    console.log('Loading example:', item.name, item.data);
+                  }}
+                  className="p-1 hover:bg-neutral-500 rounded"
+                  title="Load Example"
+                >
+                  <Package size={10} className="text-indigo-400" />
+                </button>
+              )}
+              
+              {/* Regular action buttons for non-example items */}
+              {item.type !== 'example' && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEdit(item.id, item.name);
+                    }}
+                    className="p-1 hover:bg-neutral-500 rounded"
+                    title="Rename"
+                  >
+                    <Edit2 size={10} className="text-neutral-400" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onToggleVisibility) {
+                        onToggleVisibility(item.id, !item.visible);
+                      }
+                    }}
+                    className="p-1 hover:bg-neutral-500 rounded"
+                    title={item.visible ? "Hide" : "Show"}
+                  >
+                    {item.visible ? (
+                      <Eye size={10} className="text-green-400" />
+                    ) : (
+                      <EyeOff size={10} className="text-red-400" />
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onDeleteObject) {
+                        onDeleteObject(item.id);
+                      }
+                    }}
+                    className="p-1 hover:bg-neutral-500 rounded"
+                    title="Delete"
+                  >
+                    <Trash2 size={10} className="text-red-400" />
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -576,64 +563,142 @@ export default function Directory({
           }))
         }
       ]
+    },
+    {
+      id: 'examples',
+      name: 'Examples',
+      type: 'folder',
+      children: [
+        {
+          id: 'compound-volumes',
+          name: 'Compound Volumes',
+          type: 'folder',
+          children: exampleVolumes.map(example => ({
+            id: example.id,
+            name: example.name,
+            type: 'example',
+            objectType: 'compound',
+            visible: example.visible,
+            data: example,
+            description: example.description
+          }))
+        },
+        {
+          id: 'contaminated-tube',
+          name: 'TUBTUTOT.PCS',
+          type: 'example',
+          objectType: 'compound',
+          visible: true,
+          data: exampleVolumes[0], // The contaminated tube example
+          description: 'Contaminated Steel Tube with UO2 Layer - Example from documentation'
+        }
+      ]
     }
   ];
 
   if (!isVisible) return null;
 
+  // Calculate position based on layout
+  const getPositionStyle = () => {
+    const baseStyle = {
+      width: '350px',
+      height: isMinimized ? '48px' : '80vh', // Similar height to sidebar (80vh)
+      top: '72px', // Start with small gap below navbar
+      zIndex: 25
+    };
+
+    switch (layoutPosition) {
+      case 'right':
+        return { ...baseStyle, right: '0px' }; // No gap from right edge
+      case 'left':
+        return { ...baseStyle, left: '0px' }; // No gap from left edge
+      case 'top':
+        return { 
+          ...baseStyle, 
+          top: '72px', // Small gap below navbar
+          left: '50%',
+          transform: 'translateX(-50%)',
+          height: isMinimized ? '48px' : '60vh' // Shorter height for top position
+        };
+      case 'bottom':
+        return { 
+          ...baseStyle, 
+          top: 'calc(100vh - 60vh - 72px)', // Position above bottom with margin
+          left: '50%',
+          transform: 'translateX(-50%)',
+          height: isMinimized ? '48px' : '60vh' // Shorter height for bottom position
+        };
+      default:
+        return { ...baseStyle, left: '0px' }; // No gap from left edge
+    }
+  };
+
   return (
     <div 
       ref={directoryRef}
-      className="bg-neutral-800 rounded-lg shadow-2xl border border-neutral-600 max-h-[80vh] pointer-events-auto absolute focus:outline-none"
-      style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        width: `${size.width}px`,
-        height: `${isMinimized ? 32 : size.height}px`,
-        cursor: isDragging ? 'grabbing' : (isResizing ? getResizeCursor() : 'default'),
-        zIndex: 25
-      }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={(e) => {
-        if (!isDragging && !isResizing) {
-          const resizeDir = getResizeDirection(e);
-          if (resizeDir) {
-            e.currentTarget.style.cursor = getResizeCursorFromDirection(resizeDir);
-          } else {
-            e.currentTarget.style.cursor = 'default';
-          }
-        }
-      }}
+      className="bg-neutral-800 shadow-2xl border border-neutral-600 rounded-lg pointer-events-auto fixed focus:outline-none"
+      style={getPositionStyle()}
       tabIndex={0}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Header */}
-      <div className="flex items-center justify-between bg-neutral-700 rounded-t-lg px-4 py-3 drag-handle cursor-grab">
+      <div className="flex items-center justify-between bg-neutral-700 px-4 py-3">
         <div className="flex items-center space-x-2">
-          <Move size={14} className="text-neutral-400" />
           <h2 className="text-white font-medium">Project Directory</h2>
           <span className="text-xs text-neutral-400">(F2: Rename)</span>
         </div>
-        <div className="flex items-center space-x-1">
+        
+        <div className="flex items-center space-x-2">
+          {/* Clear All Button */}
+          {existingVolumes.length > 0 && onClearAllObjects && (
+            <button
+              onClick={onClearAllObjects}
+              className="p-1 hover:bg-red-600 rounded text-white transition-colors"
+              title="Clear All Objects"
+            >
+              <Trash2 size={16} className="text-red-400" />
+            </button>
+          )}
+          
+          {/* Toggle Icon - Positioned based on directory location */}
           <button
             onClick={() => setIsMinimized(!isMinimized)}
-            className="p-1 hover:bg-neutral-600 rounded text-white"
-            title={isMinimized ? "Maximize" : "Minimize"}
+            className={`p-1 hover:bg-neutral-600 rounded text-white transition-colors ${
+              layoutPosition === 'left' ? 'ml-2' : 'mr-2'
+            }`}
+            title={isMinimized ? "Expand Directory" : "Minimize Directory"}
           >
-            <Minus size={16} />
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-neutral-600 rounded text-white"
-            title="Close"
-          >
-            <X size={16} />
+            {isMinimized ? (
+              <ChevronRight 
+                size={16} 
+                className={`text-neutral-400 ${
+                  layoutPosition === 'left' ? 'rotate-0' : 'rotate-180'
+                }`} 
+              />
+            ) : (
+              <ChevronDown 
+                size={16} 
+                className={`text-neutral-400 ${
+                  layoutPosition === 'left' ? 'rotate-0' : 'rotate-180'
+                }`} 
+              />
+            )}
           </button>
         </div>
       </div>
 
       {/* Content */}
       {!isMinimized && (
-        <div className="p-2 max-h-[calc(80vh-120px)] overflow-y-auto">
+        <div 
+          className="relative p-2 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-600 scrollbar-track-neutral-800"
+            style={{
+              height: 'calc(80vh - 60px)', // 80vh minus header height (60px)
+              maxHeight: 'calc(80vh - 60px)' // Ensure it doesn't exceed the container
+            }}
+        >
           {directoryStructure.map(item => renderItem(item))}
           
           {/* Empty state messages */}
@@ -642,6 +707,47 @@ export default function Directory({
               No objects in scene
             </div>
           )}
+          
+          {/* Scroll indicator - subtle gradient at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-neutral-800 to-transparent pointer-events-none" />
+        </div>
+      )}
+
+      {/* Dock Zones - Show when dragging components */}
+      {showDockZones && (
+        <div className="absolute bottom-0 left-0 right-0 bg-blue-600 bg-opacity-20 border-2 border-dashed border-blue-400 rounded-t-lg p-2">
+          <div className="text-center text-blue-300 text-xs">
+            Drop {draggedComponent} here to dock ({(3 - dockedComponents.length)} slots remaining)
+          </div>
+        </div>
+      )}
+
+      {/* Docked Components */}
+      {dockedComponents.length > 0 && (
+        <div className="border-t border-neutral-600 bg-neutral-750">
+          <div className="px-3 py-2 text-xs text-neutral-400 font-medium">
+            Docked Components ({dockedComponents.length}/3)
+          </div>
+          <div className="space-y-1 px-3 pb-3">
+            {dockedComponents.map((component, index) => (
+              <div
+                key={component.id || index}
+                className="flex items-center justify-between bg-neutral-700 rounded px-2 py-1 text-xs"
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-white">{component.name || component.type}</span>
+                </div>
+                <button
+                  onClick={() => handleUndock(component.id || index)}
+                  className="text-neutral-400 hover:text-white p-1"
+                  title="Undock"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -655,54 +761,88 @@ export default function Directory({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={() => {
-              setSelectedItemId(contextMenu.item.id);
-              startEdit(contextMenu.item.id, contextMenu.item.name);
-              closeContextMenu();
-            }}
-            className="w-full px-3 py-2 text-left text-white text-xs hover:bg-neutral-600 flex items-center space-x-2"
-          >
-            <Edit2 size={12} />
-            <span>Rename</span>
-          </button>
-          <button
-            onClick={() => {
-              setSelectedItemId(contextMenu.item.id);
-              if (onToggleVisibility) {
-                onToggleVisibility(contextMenu.item.id, !contextMenu.item.visible);
-              }
-              closeContextMenu();
-            }}
-            className="w-full px-3 py-2 text-left text-white text-xs hover:bg-neutral-600 flex items-center space-x-2"
-          >
-            {contextMenu.item.visible ? (
-              <>
-                <EyeOff size={12} />
-                <span>Hide</span>
-              </>
-            ) : (
-              <>
-                <Eye size={12} />
-                <span>Show</span>
-              </>
-            )}
-          </button>
-          <button
-            onClick={() => {
-              setSelectedItemId(contextMenu.item.id);
-              if (onDeleteObject) {
-                if (window.confirm(`Are you sure you want to delete "${contextMenu.item.name}"?`)) {
-                  onDeleteObject(contextMenu.item.id);
-                }
-              }
-              closeContextMenu();
-            }}
-            className="w-full px-3 py-2 text-left text-red-400 text-xs hover:bg-neutral-600 flex items-center space-x-2"
-          >
-            <Trash2 size={12} />
-            <span>Delete</span>
-          </button>
+          {/* Example items context menu */}
+          {contextMenu.item.type === 'example' ? (
+            <>
+              <button
+                onClick={() => {
+                  setSelectedItemId(contextMenu.item.id);
+                  if (onSelectObject) {
+                    onSelectObject(contextMenu.item);
+                  }
+                  console.log('Loading example:', contextMenu.item.name, contextMenu.item.data);
+                  closeContextMenu();
+                }}
+                className="w-full px-3 py-2 text-left text-indigo-400 text-xs hover:bg-neutral-600 flex items-center space-x-2"
+              >
+                <Package size={12} />
+                <span>Load Example</span>
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedItemId(contextMenu.item.id);
+                  console.log('View details for:', contextMenu.item.name);
+                  closeContextMenu();
+                }}
+                className="w-full px-3 py-2 text-left text-white text-xs hover:bg-neutral-600 flex items-center space-x-2"
+              >
+                <FileText size={12} />
+                <span>View Details</span>
+              </button>
+            </>
+          ) : (
+            /* Regular items context menu */
+            <>
+              <button
+                onClick={() => {
+                  setSelectedItemId(contextMenu.item.id);
+                  startEdit(contextMenu.item.id, contextMenu.item.name);
+                  closeContextMenu();
+                }}
+                className="w-full px-3 py-2 text-left text-white text-xs hover:bg-neutral-600 flex items-center space-x-2"
+              >
+                <Edit2 size={12} />
+                <span>Rename</span>
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedItemId(contextMenu.item.id);
+                  if (onToggleVisibility) {
+                    onToggleVisibility(contextMenu.item.id, !contextMenu.item.visible);
+                  }
+                  closeContextMenu();
+                }}
+                className="w-full px-3 py-2 text-left text-white text-xs hover:bg-neutral-600 flex items-center space-x-2"
+              >
+                {contextMenu.item.visible ? (
+                  <>
+                    <EyeOff size={12} />
+                    <span>Hide</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye size={12} />
+                    <span>Show</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedItemId(contextMenu.item.id);
+                  if (onDeleteObject) {
+                    if (window.confirm(`Are you sure you want to delete "${contextMenu.item.name}"?`)) {
+                      onDeleteObject(contextMenu.item.id);
+                    }
+                  }
+                  closeContextMenu();
+                }}
+                className="w-full px-3 py-2 text-left text-red-400 text-xs hover:bg-neutral-600 flex items-center space-x-2"
+              >
+                <Trash2 size={12} />
+                <span>Delete</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

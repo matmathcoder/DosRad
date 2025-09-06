@@ -10,7 +10,8 @@ from .models import (
     Project, SceneConfiguration, Geometry, Composition, 
     Spectrum, Volume, SceneHistory, CSGOperation, Sensor,
     CompoundObject, CompoundObjectGeometry, CompoundObjectComposition,
-    CompoundObjectSpectrum, CompoundObjectSensor, CompoundObjectImport
+    CompoundObjectSpectrum, CompoundObjectSensor, CompoundObjectImport,
+    MeshConfiguration, ComputationConfiguration, ComputationResult, ToleranceConfiguration
 )
 from .serializers import (
     ProjectSerializer, ProjectDetailSerializer, SceneConfigurationSerializer,
@@ -19,7 +20,9 @@ from .serializers import (
     CSGOperationSerializer, SensorSerializer, CompleteSceneSerializer,
     CompoundObjectSerializer, CompoundObjectListSerializer, CompoundObjectCreateSerializer,
     CompoundObjectImportSerializer, CompoundObjectImportRequestSerializer,
-    CompoundObjectExportSerializer
+    CompoundObjectExportSerializer, MeshConfigurationSerializer, 
+    ComputationConfigurationSerializer, ComputationResultSerializer, 
+    ToleranceConfigurationSerializer
 )
 
 
@@ -763,3 +766,225 @@ class CompoundObjectImportHistoryView(generics.ListAPIView):
         project_id = self.kwargs.get('project_id')
         project = get_object_or_404(Project, id=project_id, user=self.request.user)
         return CompoundObjectImport.objects.filter(project=project)
+
+
+# Mesh Configuration Views
+class MeshConfigurationView(generics.ListCreateAPIView):
+    """List and create mesh configurations for a volume"""
+    serializer_class = MeshConfigurationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        volume_id = self.kwargs.get('volume_id')
+        volume = get_object_or_404(Volume, id=volume_id, project__user=self.request.user)
+        return MeshConfiguration.objects.filter(volume=volume)
+    
+    def perform_create(self, serializer):
+        volume_id = self.kwargs.get('volume_id')
+        volume = get_object_or_404(Volume, id=volume_id, project__user=self.request.user)
+        serializer.save(volume=volume)
+
+
+class MeshConfigurationDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update, or delete a mesh configuration"""
+    serializer_class = MeshConfigurationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return MeshConfiguration.objects.filter(volume__project__user=self.request.user)
+
+
+# Computation Configuration Views
+class ComputationConfigurationView(generics.ListCreateAPIView):
+    """List and create computation configurations for a project"""
+    serializer_class = ComputationConfigurationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        project_id = self.kwargs.get('project_id')
+        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        return ComputationConfiguration.objects.filter(project=project)
+    
+    def perform_create(self, serializer):
+        project_id = self.kwargs.get('project_id')
+        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        serializer.save(project=project)
+
+
+class ComputationConfigurationDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update, or delete a computation configuration"""
+    serializer_class = ComputationConfigurationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return ComputationConfiguration.objects.filter(project__user=self.request.user)
+
+
+# Computation Result Views
+class ComputationResultView(generics.ListCreateAPIView):
+    """List and create computation results for a project"""
+    serializer_class = ComputationResultSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        project_id = self.kwargs.get('project_id')
+        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        return ComputationResult.objects.filter(project=project)
+    
+    def perform_create(self, serializer):
+        project_id = self.kwargs.get('project_id')
+        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        serializer.save(project=project)
+
+
+class ComputationResultDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update, or delete a computation result"""
+    serializer_class = ComputationResultSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return ComputationResult.objects.filter(project__user=self.request.user)
+
+
+# Tolerance Configuration Views
+class ToleranceConfigurationView(generics.ListCreateAPIView):
+    """List and create tolerance configurations for a volume"""
+    serializer_class = ToleranceConfigurationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        volume_id = self.kwargs.get('volume_id')
+        volume = get_object_or_404(Volume, id=volume_id, project__user=self.request.user)
+        return ToleranceConfiguration.objects.filter(volume=volume)
+    
+    def perform_create(self, serializer):
+        volume_id = self.kwargs.get('volume_id')
+        volume = get_object_or_404(Volume, id=volume_id, project__user=self.request.user)
+        serializer.save(volume=volume)
+
+
+class ToleranceConfigurationDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update, or delete a tolerance configuration"""
+    serializer_class = ToleranceConfigurationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return ToleranceConfiguration.objects.filter(volume__project__user=self.request.user)
+
+
+# Monte-Carlo Calculation API
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def start_computation(request, project_id):
+    """Start Monte-Carlo computation for a project"""
+    try:
+        project = get_object_or_404(Project, id=project_id, user=request.user)
+        
+        # Get computation parameters
+        convergence_criterion = request.data.get('convergence_criterion', 0.01)
+        particles_per_sample = request.data.get('particles_per_sample', 10000)
+        number_of_samples = request.data.get('number_of_samples', 100)
+        configurations = request.data.get('configurations', ['nominal'])
+        
+        # Validate parameters
+        if not 0.001 <= convergence_criterion <= 0.1:
+            return Response(
+                {'error': 'Convergence criterion must be between 0.001 and 0.1'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if particles_per_sample < 1000:
+            return Response(
+                {'error': 'Particles per sample must be at least 1000'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if number_of_samples < 10:
+            return Response(
+                {'error': 'Number of samples must be at least 10'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create computation configurations
+        created_configs = []
+        for config_type in configurations:
+            config, created = ComputationConfiguration.objects.get_or_create(
+                project=project,
+                config_type=config_type,
+                defaults={
+                    'name': f'{config_type.title()} Configuration',
+                    'convergence_criterion': convergence_criterion,
+                    'particles_per_sample': particles_per_sample,
+                    'number_of_samples': number_of_samples
+                }
+            )
+            created_configs.append(config)
+        
+        # Start computation (simulated for now)
+        # In real implementation, this would start the actual Monte-Carlo calculation
+        results = []
+        for config in created_configs:
+            # Simulate computation result
+            import random
+            import time
+            
+            dose_rate = random.uniform(1e-6, 1e-2)  # Random dose rate
+            uncertainty = random.uniform(0.01, 0.2)  # Random uncertainty
+            computation_time = random.randint(60, 300)  # Random computation time
+            converged = random.choice([True, True, True, False])  # 75% success rate
+            
+            result = ComputationResult.objects.create(
+                project=project,
+                configuration=config,
+                dose_rate=dose_rate,
+                uncertainty=uncertainty,
+                computation_time=computation_time,
+                converged=converged,
+                status='success' if converged else 'error',
+                log_data={
+                    'steps': [
+                        'Initializing geometry...',
+                        'Loading material libraries...',
+                        'Calculating importance of meshes...',
+                        'Generating source points...',
+                        'Running Monte-Carlo simulation...',
+                        'Calculating build-up factors...',
+                        'Computing dose rates...',
+                        'Validating convergence...',
+                        'Storing results...'
+                    ],
+                    'convergence_history': [random.uniform(0.1, 1.0) for _ in range(10)]
+                }
+            )
+            results.append(result)
+        
+        # Return results
+        serializer = ComputationResultSerializer(results, many=True)
+        return Response({
+            'message': 'Computation started successfully',
+            'results': serializer.data
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to start computation: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_computation_results(request, project_id):
+    """Get computation results for a project"""
+    try:
+        project = get_object_or_404(Project, id=project_id, user=request.user)
+        results = ComputationResult.objects.filter(project=project).order_by('-created_at')
+        
+        serializer = ComputationResultSerializer(results, many=True)
+        return Response(serializer.data)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get computation results: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

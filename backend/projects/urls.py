@@ -52,4 +52,24 @@ urlpatterns = [
     path('<int:project_id>/compound-objects/import/', views.CompoundObjectImportView.as_view(), name='compound-object-import'),
     path('<int:project_id>/compound-objects/export/', views.CompoundObjectExportView.as_view(), name='compound-object-export'),
     path('<int:project_id>/compound-objects/import-history/', views.CompoundObjectImportHistoryView.as_view(), name='compound-object-import-history'),
+    
+    # Mesh configuration URLs
+    path('volumes/<int:volume_id>/mesh-configurations/', views.MeshConfigurationView.as_view(), name='mesh-configuration-list'),
+    path('mesh-configurations/<int:pk>/', views.MeshConfigurationDetailView.as_view(), name='mesh-configuration-detail'),
+    
+    # Computation configuration URLs
+    path('<int:project_id>/computation-configurations/', views.ComputationConfigurationView.as_view(), name='computation-configuration-list'),
+    path('computation-configurations/<int:pk>/', views.ComputationConfigurationDetailView.as_view(), name='computation-configuration-detail'),
+    
+    # Computation result URLs
+    path('<int:project_id>/computation-results/', views.ComputationResultView.as_view(), name='computation-result-list'),
+    path('computation-results/<int:pk>/', views.ComputationResultDetailView.as_view(), name='computation-result-detail'),
+    
+    # Tolerance configuration URLs
+    path('volumes/<int:volume_id>/tolerance-configurations/', views.ToleranceConfigurationView.as_view(), name='tolerance-configuration-list'),
+    path('tolerance-configurations/<int:pk>/', views.ToleranceConfigurationDetailView.as_view(), name='tolerance-configuration-detail'),
+    
+    # Monte-Carlo computation URLs
+    path('<int:project_id>/start-computation/', views.start_computation, name='start-computation'),
+    path('<int:project_id>/computation-results/', views.get_computation_results, name='get-computation-results'),
 ]

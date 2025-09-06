@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     Project, SceneConfiguration, Geometry, Composition, 
-    Spectrum, Volume, SceneHistory, CSGOperation
+    Spectrum, Volume, SceneHistory, CSGOperation, MeshConfiguration,
+    ComputationConfiguration, ComputationResult, ToleranceConfiguration
 )
 
 
@@ -67,3 +68,35 @@ class CSGOperationAdmin(admin.ModelAdmin):
     list_filter = ('operation_type', 'created_at')
     search_fields = ('project__name',)
     readonly_fields = ('created_at',)
+
+
+@admin.register(MeshConfiguration)
+class MeshConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('volume', 'coordinate_system', 'is_validated', 'created_at')
+    list_filter = ('coordinate_system', 'is_validated', 'created_at')
+    search_fields = ('volume__name', 'volume__project__name')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(ComputationConfiguration)
+class ComputationConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'project', 'config_type', 'is_active', 'created_at')
+    list_filter = ('config_type', 'is_active', 'created_at')
+    search_fields = ('name', 'project__name')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(ComputationResult)
+class ComputationResultAdmin(admin.ModelAdmin):
+    list_display = ('configuration', 'dose_rate', 'uncertainty', 'converged', 'status', 'created_at')
+    list_filter = ('converged', 'status', 'created_at')
+    search_fields = ('configuration__name', 'project__name')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(ToleranceConfiguration)
+class ToleranceConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('volume', 'coordinate', 'plus_delta', 'minus_delta', 'is_active', 'created_at')
+    list_filter = ('coordinate', 'is_active', 'created_at')
+    search_fields = ('volume__name', 'volume__project__name')
+    readonly_fields = ('created_at', 'updated_at')

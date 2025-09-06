@@ -51,6 +51,13 @@ export default function App() {
     debugPanel: false
   });
 
+  // Layout configuration state
+  const [layoutConfig, setLayoutConfig] = useState({
+    sidebar: 'right', // 'right', 'left', 'top', 'bottom'
+    geometrySelector: 'left', // 'left', 'right', 'top', 'bottom'
+    directory: 'left' // 'left', 'right', 'top', 'bottom'
+  });
+
   // Panel visibility states for volume form panels
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
   const [showLineSpectrumPanel, setShowLineSpectrumPanel] = useState(false);
@@ -64,21 +71,24 @@ export default function App() {
   const [currentComposition, setCurrentComposition] = useState(null);
   const [currentSpectrum, setCurrentSpectrum] = useState(null);
 
+  // Docking system state
+  const [dockedComponents, setDockedComponents] = useState([]);
+
   // Mock data - in real app this would come from database/API
-  const [existingCompositions] = useState([
+  const [existingCompositions, setExistingCompositions] = useState([
     { name: 'Steel', density: 7.85, color: '#A9A9A9', elements: [{ element: 'Fe', percentage: 98 }, { element: 'C', percentage: 2 }] },
     { name: 'Aluminum', density: 2.70, color: '#C0C0C0', elements: [{ element: 'Al', percentage: 100 }] },
     { name: 'Water', density: 1.00, color: '#87CEEB', elements: [{ element: 'H', percentage: 11.19 }, { element: 'O', percentage: 88.81 }] }
   ]);
 
-  const [existingSpectra] = useState([
+  const [existingSpectra, setExistingSpectra] = useState([
     { name: 'Co-60 Standard', type: 'line', multiplier: 1.0, lines: [{ energy: 1173.2, intensity: 99.85 }, { energy: 1332.5, intensity: 99.98 }] },
     { name: 'Cs-137 Standard', type: 'line', multiplier: 1.0, lines: [{ energy: 661.7, intensity: 85.1 }] },
     { name: 'Mixed Fission', type: 'group', multiplier: 1.0, isotopes: ['Cs-137', 'Sr-90', 'I-131'] }
   ]);
 
   const handleShowVolumeForm = () => {
- setShowVolumeForm(true);
+    setShowVolumeForm(true);
     // Also ensure the volume form component is visible
     setComponentVisibility(prev => ({
       ...prev,
@@ -217,6 +227,306 @@ export default function App() {
     }
   };
 
+  const createCompoundVolumes = (exampleData) => {
+    const volumes = [];
+    // Use a timestamp-based ID to ensure uniqueness across multiple loads
+    const baseId = Date.now();
+    let volumeId = 0;
+    
+    switch (exampleData.id) {
+      case 'contaminated-tube':
+        // TUBTUTOT.PCS - Contaminated Steel Tube with UO2 Layer
+        volumes.push(
+          {
+            type: 'cylinder',
+            parameters: { radiusTop: 0.1, radiusBottom: 0.1, height: 0.5 },
+            position: { x: 0, y: 1.25, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Outer Steel Tube',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'cylinder',
+              volumeName: 'Outer Steel Tube',
+              isSource: false,
+              composition: { name: 'Stainless Steel', density: 7.85, color: '#A9A9A9' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          },
+          {
+            type: 'cylinder',
+            parameters: { radiusTop: 0.095, radiusBottom: 0.095, height: 0.5 },
+            position: { x: 0, y: 1.25, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'UO2 Source Layer',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'cylinder',
+              volumeName: 'UO2 Source Layer',
+              isSource: true,
+              composition: { name: 'Uranium Oxide', density: 10.97, color: '#FFD700' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          },
+          {
+            type: 'cylinder',
+            parameters: { radiusTop: 0.09, radiusBottom: 0.09, height: 0.5 },
+            position: { x: 0, y: 1.25, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Air Space',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'cylinder',
+              volumeName: 'Air Space',
+              isSource: false,
+              composition: { name: 'Air', density: 0.001225, color: '#87CEEB' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          }
+        );
+        break;
+        
+      case 'reactor-vessel':
+        // REACTOR_VESSEL.PCS - Nuclear Reactor Pressure Vessel
+        volumes.push(
+          {
+            type: 'cylinder',
+            parameters: { radiusTop: 2.25, radiusBottom: 2.25, height: 12 },
+            position: { x: 0, y: 6, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Steel Shell',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'cylinder',
+              volumeName: 'Steel Shell',
+              isSource: false,
+              composition: { name: 'Carbon Steel', density: 7.85, color: '#A9A9A9' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          },
+          {
+            type: 'cylinder',
+            parameters: { radiusTop: 2.23, radiusBottom: 2.23, height: 12 },
+            position: { x: 0, y: 6, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Stainless Steel Liner',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'cylinder',
+              volumeName: 'Stainless Steel Liner',
+              isSource: false,
+              composition: { name: 'SS304', density: 8.0, color: '#C0C0C0' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          },
+          {
+            type: 'cylinder',
+            parameters: { radiusTop: 3.25, radiusBottom: 3.25, height: 12 },
+            position: { x: 0, y: 6, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Concrete Shield',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'cylinder',
+              volumeName: 'Concrete Shield',
+              isSource: false,
+              composition: { name: 'Heavy Concrete', density: 2.4, color: '#8B7355' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          }
+        );
+        break;
+        
+      case 'waste-container':
+        // WASTE_CONTAINER.PCS - High-Level Waste Storage Container
+        volumes.push(
+          {
+            type: 'cylinder',
+            parameters: { radiusTop: 0.75, radiusBottom: 0.75, height: 2 },
+            position: { x: 0, y: 2, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Lead Shield',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'cylinder',
+              volumeName: 'Lead Shield',
+              isSource: false,
+              composition: { name: 'Lead', density: 11.34, color: '#708090' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          },
+          {
+            type: 'cylinder',
+            parameters: { radiusTop: 0.7, radiusBottom: 0.7, height: 2 },
+            position: { x: 0, y: 2, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Steel Container',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'cylinder',
+              volumeName: 'Steel Container',
+              isSource: false,
+              composition: { name: 'Stainless Steel', density: 7.85, color: '#A9A9A9' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          },
+          {
+            type: 'cylinder',
+            parameters: { radiusTop: 1.25, radiusBottom: 1.25, height: 2 },
+            position: { x: 0, y: 2, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Concrete Overpack',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'cylinder',
+              volumeName: 'Concrete Overpack',
+              isSource: false,
+              composition: { name: 'Reinforced Concrete', density: 2.4, color: '#8B7355' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          }
+        );
+        break;
+        
+      case 'fuel-assembly':
+        // FUEL_ASSEMBLY.PCS - Nuclear Fuel Assembly
+        volumes.push(
+          {
+            type: 'box',
+            parameters: { width: 0.2, height: 4.5, depth: 0.2 },
+            position: { x: 0, y: 3.25, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Fuel Assembly Structure',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'box',
+              volumeName: 'Fuel Assembly Structure',
+              isSource: false,
+              composition: { name: 'Zircaloy-4', density: 6.56, color: '#C0C0C0' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          },
+          {
+            type: 'box',
+            parameters: { width: 0.18, height: 4.5, depth: 0.18 },
+            position: { x: 0, y: 3.25, z: 0 },
+            scale: { x: 1, y: 1, z: 1 },
+            name: 'Fuel Rods',
+            userData: {
+              id: `volume-${baseId}-${volumeId++}`,
+              type: 'box',
+              volumeName: 'Fuel Rods',
+              isSource: true,
+              composition: { name: 'UO2 Pellets', density: 10.97, color: '#FFD700' },
+              importedFrom: exampleData.name,
+              isExample: true
+            }
+          }
+        );
+        break;
+        
+      default:
+        console.warn('Unknown example type:', exampleData.id);
+    }
+    
+    return volumes;
+  };
+
+  const loadExampleScene = (exampleData) => {
+    console.log('Loading example scene:', exampleData);
+    
+    // Check if this example is already loaded to prevent duplicates
+    const existingExampleVolumes = existingVolumes.filter(vol => 
+      vol.userData?.isExample === true && 
+      (vol.userData?.importedFrom === exampleData.name || 
+       vol.userData?.volumeName?.includes(exampleData.name) ||
+       vol.userData?.volumeName?.includes('Steel Tube') ||
+       vol.userData?.volumeName?.includes('UO2') ||
+       vol.userData?.volumeName?.includes('Air Space'))
+    );
+    
+    if (existingExampleVolumes.length > 0) {
+      console.log('Example already loaded, skipping duplicate load');
+      return;
+    }
+    
+    // Clear existing scene first
+    if (window.clearScene) {
+      window.clearScene();
+    }
+    // Clear existing volumes from state
+    setExistingVolumes([]);
+    setHasObjects(false);
+    setSelectedGeometry(null);
+    setHasSelectedObject(false);
+    
+    // Create compound volumes based on the example
+    const volumes = createCompoundVolumes(exampleData);
+    
+    // Add each volume to the scene using createGeometryFromData
+    volumes.forEach(volume => {
+      if (window.createGeometryFromData) {
+        const objData = {
+          type: volume.type,
+          geometry: {
+            type: volume.type,
+            parameters: volume.parameters
+          },
+          position: volume.position,
+          scale: volume.scale,
+          userData: volume.userData
+        };
+        
+        const geometry = window.createGeometryFromData(objData);
+        if (geometry) {
+          // Add to existing volumes list
+          const volumeData = {
+            id: geometry.userData.id || Date.now(),
+            type: geometry.userData.type,
+            position: geometry.position,
+            visible: geometry.userData.visible !== false,
+            userData: geometry.userData
+          };
+          setExistingVolumes(prev => [...prev, volumeData]);
+        }
+      }
+    });
+    
+    setHasObjects(true);
+    console.log(`Loaded example scene: ${exampleData.name} with ${volumes.length} volumes`);
+  };
+
+  // Layout swap functionality - Only 2 layouts: left/right swap
+  const cycleLayout = () => {
+    setLayoutConfig(prev => {
+      // Toggle between the two layouts
+      if (prev.sidebar === 'right') {
+        // Switch to: Sidebar left, Directory + Geometry right
+        return {
+          sidebar: 'left',
+          geometrySelector: 'right',
+          directory: 'right'
+        };
+      } else {
+        // Switch to: Sidebar right, Directory + Geometry left
+        return {
+          sidebar: 'right',
+          geometrySelector: 'left',
+          directory: 'left'
+        };
+      }
+    });
+  };
+
   const handleZoomChange = (zoomLevel) => {
     if (window.setZoomLevel) {
       window.setZoomLevel(zoomLevel);
@@ -233,6 +543,30 @@ export default function App() {
 
   const handleModeChange = (modeData) => {
     // TODO: Implement mode switching logic
+  };
+
+  // Docking system handlers
+  const handleDockComponent = (componentType, componentData) => {
+    if (dockedComponents.length >= 3) {
+      console.warn('Maximum of 3 components can be docked');
+      return;
+    }
+
+    const newComponent = {
+      id: Date.now(),
+      type: componentType,
+      name: componentData.name || componentType,
+      data: componentData,
+      dockedAt: new Date().toISOString()
+    };
+
+    setDockedComponents(prev => [...prev, newComponent]);
+    console.log(`Docked ${componentType} to Directory`);
+  };
+
+  const handleUndockComponent = (componentId) => {
+    setDockedComponents(prev => prev.filter(comp => comp.id !== componentId));
+    console.log(`Undocked component ${componentId} from Directory`);
   };
 
   const handleSceneRotationChange = (rotation) => {
@@ -255,7 +589,22 @@ export default function App() {
       setSelectedGeometry({
         type: selectedObject.userData?.type || 'unknown',
         id: selectedObject.userData?.id,
-        position: selectedObject.position,
+        name: selectedObject.userData?.volumeName || `Volume_${selectedObject.userData?.id || Date.now()}`,
+        position: {
+          x: selectedObject.position.x,
+          y: selectedObject.position.y,
+          z: selectedObject.position.z
+        },
+        rotation: {
+          x: selectedObject.rotation.x,
+          y: selectedObject.rotation.y,
+          z: selectedObject.rotation.z
+        },
+        scale: {
+          x: selectedObject.scale.x,
+          y: selectedObject.scale.y,
+          z: selectedObject.scale.z
+        },
         userData: selectedObject.userData
       });
     } else {
@@ -276,6 +625,56 @@ export default function App() {
       }
     }
     setShowGeometryPanel(false);
+  };
+
+  const handleGeometryChanged = (geometryId, changes) => {
+    // Update the existingVolumes state when geometry changes
+    setExistingVolumes(prev => prev.map(volume => {
+      if (volume.id === geometryId) {
+        return {
+          ...volume,
+          position: changes.position || volume.position,
+          rotation: changes.rotation || volume.rotation,
+          scale: changes.scale || volume.scale
+        };
+      }
+      return volume;
+    }));
+
+    // Update selectedGeometry if it's the same geometry
+    if (selectedGeometry && selectedGeometry.id === geometryId) {
+      setSelectedGeometry(prev => ({
+        ...prev,
+        position: changes.position || prev.position,
+        rotation: changes.rotation || prev.rotation,
+        scale: changes.scale || prev.scale
+      }));
+    }
+
+    // Update localStorage
+    try {
+      const savedData = localStorage.getItem('mercurad_scene');
+      if (savedData) {
+        const sceneData = JSON.parse(savedData);
+        if (sceneData.geometries && Array.isArray(sceneData.geometries)) {
+          const updatedGeometries = sceneData.geometries.map(geometry => {
+            if (geometry.id === geometryId) {
+              return {
+                ...geometry,
+                position: changes.position || geometry.position,
+                rotation: changes.rotation || geometry.rotation,
+                scale: changes.scale || geometry.scale
+              };
+            }
+            return geometry;
+          });
+          localStorage.setItem('mercurad_scene', JSON.stringify({ ...sceneData, geometries: updatedGeometries }));
+          console.log(`Geometry ${geometryId} updated in localStorage`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update geometry in localStorage:', error);
+    }
   };
 
   const handleShowSensorPanel = () => {
@@ -390,6 +789,61 @@ export default function App() {
     }));
   };
 
+  // Mesh panel handlers
+  const handleMeshValidate = (meshData) => {
+    console.log('Mesh validated:', meshData);
+    // In real implementation, this would save mesh data to the volume
+  };
+
+  // Computation panel handlers
+  const handleComputationComplete = (results) => {
+    console.log('Computation completed:', results);
+    // In real implementation, this would store results and update UI
+  };
+
+  // Generate scene panel handlers
+  const handleSceneGenerated = (files) => {
+    console.log('Scene files generated:', files);
+    // In real implementation, this would handle file downloads
+  };
+
+  // State change handlers for persistence
+  const handleCompositionsChange = (compositions) => {
+    setExistingCompositions(compositions);
+  };
+
+  const handleSensorsChange = (sensors) => {
+    setExistingSensors(sensors);
+  };
+
+  const handleSpectraChange = (spectra) => {
+    setExistingSpectra(spectra);
+  };
+
+  // Clear all objects handler
+  const handleClearAllObjects = () => {
+    if (window.confirm('Are you sure you want to delete ALL objects from the scene? This action cannot be undone.')) {
+      // Clear from 3D scene
+      if (window.clearScene) {
+        window.clearScene();
+      }
+      
+      // Clear from state
+      setExistingVolumes([]);
+      setExistingSensors([]);
+      setHasObjects(false);
+      setSelectedGeometry(null);
+      setHasSelectedObject(false);
+      
+      // Clear from localStorage
+      if (window.clearSavedScene) {
+        window.clearSavedScene();
+      }
+      
+      console.log('All objects cleared from scene');
+    }
+  };
+
   // Function to collect current scene data
   const getSceneData = () => {
     const sceneData = {
@@ -436,6 +890,8 @@ export default function App() {
         userData: volume.userData
       })),
       sensors: existingSensors,
+      compositions: existingCompositions,
+      spectra: existingSpectra,
       settings: {
         componentVisibility,
         selectedTool,
@@ -520,6 +976,16 @@ export default function App() {
         });
       }
       
+      // Load compositions
+      if (sceneData.compositions && Array.isArray(sceneData.compositions)) {
+        setExistingCompositions(sceneData.compositions);
+      }
+      
+      // Load spectra
+      if (sceneData.spectra && Array.isArray(sceneData.spectra)) {
+        setExistingSpectra(sceneData.spectra);
+      }
+      
       // Load component visibility settings
       if (sceneData.settings && sceneData.settings.componentVisibility) {
         setComponentVisibility(sceneData.settings.componentVisibility);
@@ -531,6 +997,81 @@ export default function App() {
       }
  } catch (error) {
       console.error('Error loading scene data:', error);
+    }
+  };
+
+  // Function to load data from localStorage and sync with existingVolumes
+  const loadFromLocalStorage = () => {
+    try {
+      const savedData = localStorage.getItem('mercurad_scene');
+      if (!savedData) return;
+      
+      const sceneData = JSON.parse(savedData);
+      
+      if (sceneData.geometries && Array.isArray(sceneData.geometries)) {
+        // Check for excessive volumes (likely duplicates)
+        if (sceneData.geometries.length > 20) {
+          console.warn(`Detected ${sceneData.geometries.length} volumes, which seems excessive. Clearing localStorage to prevent duplicates.`);
+          localStorage.removeItem('mercurad_scene');
+          return;
+        }
+        
+        // Convert localStorage geometries to existingVolumes format
+        let volumes = sceneData.geometries.map(geometryData => ({
+          id: geometryData.id,
+          type: geometryData.type,
+          name: geometryData.volumeName || `Volume_${geometryData.id}`,
+          userData: {
+            volumeName: geometryData.volumeName || `Volume_${geometryData.id}`,
+            id: geometryData.id,
+            type: geometryData.type,
+            originalColor: geometryData.originalColor,
+            visible: true,
+            // Include additional userData if available
+            ...geometryData.userData
+          },
+          position: geometryData.position,
+          rotation: geometryData.rotation,
+          scale: geometryData.scale
+        }));
+        
+        // Remove duplicates based on name and position
+        const uniqueVolumes = [];
+        const seen = new Set();
+        
+        volumes.forEach(volume => {
+          const key = `${volume.userData.volumeName}-${volume.position.x}-${volume.position.y}-${volume.position.z}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueVolumes.push(volume);
+          }
+        });
+        
+        if (uniqueVolumes.length !== volumes.length) {
+          console.log(`Removed ${volumes.length - uniqueVolumes.length} duplicate volumes`);
+        }
+        
+        setExistingVolumes(uniqueVolumes);
+        console.log(`Loaded ${uniqueVolumes.length} volumes from localStorage`);
+      }
+      
+      // Load compositions, sensors, and spectra from localStorage
+      if (sceneData.compositions && Array.isArray(sceneData.compositions)) {
+        setExistingCompositions(sceneData.compositions);
+        console.log(`Loaded ${sceneData.compositions.length} compositions from localStorage`);
+      }
+      
+      if (sceneData.sensors && Array.isArray(sceneData.sensors)) {
+        setExistingSensors(sceneData.sensors);
+        console.log(`Loaded ${sceneData.sensors.length} sensors from localStorage`);
+      }
+      
+      if (sceneData.spectra && Array.isArray(sceneData.spectra)) {
+        setExistingSpectra(sceneData.spectra);
+        console.log(`Loaded ${sceneData.spectra.length} spectra from localStorage`);
+      }
+    } catch (error) {
+      console.error('Error loading from localStorage:', error);
     }
   };
 
@@ -561,6 +1102,9 @@ export default function App() {
     // Expose loadSceneData function globally
     window.loadSceneData = loadSceneData;
 
+    // Load data from localStorage on component mount
+    loadFromLocalStorage();
+
     return () => {
       window.removeEventListener('toggleHelp', handleToggleHelp);
       window.removeEventListener('resize', handleResize);
@@ -568,6 +1112,12 @@ export default function App() {
       delete window.loadSceneData;
     };
   }, []);
+
+  // Keep hasObjects in sync with existingVolumes
+  useEffect(() => {
+    setHasObjects(existingVolumes.length > 0);
+  }, [existingVolumes]);
+
 
   return (
     <AuthProvider>
@@ -584,10 +1134,14 @@ export default function App() {
           onAxisChange={handleAxisChange}
           onViewModeChange={handleViewModeChange}
           onGeometryDeleted={(geometryId) => {
+            console.log('Geometry deleted with ID:', geometryId);
             // Remove the geometry from the existing volumes list
-            setExistingVolumes(prev => prev.filter(volume => volume.id !== geometryId));
-            // Update object states
-            setHasObjects(existingVolumes.length > 1);
+            setExistingVolumes(prev => {
+              const updated = prev.filter(volume => volume.id !== geometryId);
+              console.log('Updated volumes after deletion:', updated);
+              return updated;
+            });
+            // Update object states - will be updated when existingVolumes changes
             if (selectedGeometry?.id === geometryId) {
               setSelectedGeometry(null);
               setHasSelectedObject(false);
@@ -601,6 +1155,13 @@ export default function App() {
                 : volume
             ));
           }}
+          onGeometryChanged={handleGeometryChanged}
+          existingCompositions={existingCompositions}
+          existingSensors={existingSensors}
+          existingSpectra={existingSpectra}
+          onCompositionsChange={handleCompositionsChange}
+          onSensorsChange={handleSensorsChange}
+          onSpectraChange={handleSpectraChange}
         />
       </div>
       
@@ -608,30 +1169,40 @@ export default function App() {
       <div className="absolute inset-0 z-30 pointer-events-none">
         {/* Navigation Bar - Top */}
         <div className="absolute top-0 left-0 right-0 pointer-events-auto">
-                  <Navigation 
-          onShowVolumeForm={handleShowVolumeForm}
-          onToggleHelp={() => setShowHelp(prev => !prev)}
-          onAxisChange={handleAxisChange}
-          onViewModeChange={handleViewModeChange}
-          onMaterialChange={handleMaterialChange}
-          onViewMenuAction={handleViewMenuAction}
-          onShowGeometryPanel={handleShowGeometryPanel}
+          <Navigation 
+            onShowVolumeForm={handleShowVolumeForm}
+            onToggleHelp={() => setShowHelp(prev => !prev)}
+            onAxisChange={handleAxisChange}
+            onViewModeChange={handleViewModeChange}
+            onMaterialChange={handleMaterialChange}
+            onViewMenuAction={handleViewMenuAction}
+            onShowGeometryPanel={handleShowGeometryPanel}
           onShowSensorPanel={handleShowSensorPanel}
           onShowCompoundVolume={handleShowCompoundVolume}
           onToggleComponentVisibility={handleToggleComponentVisibility}
           sceneData={getSceneData()}
-        />
+          selectedVolume={selectedGeometry}
+          onMeshValidate={handleMeshValidate}
+          onComputationComplete={handleComputationComplete}
+          onSceneGenerated={handleSceneGenerated}
+          />
         </div>
         
-        {/* Geometry Selector - Draggable */}
+        {/* Geometry Selector - Draggable floating component positioned next to Directory */}
         {componentVisibility.geometrySelector && (
-          <GeometrySelector onGeometrySelect={handleGeometrySelect} />
+          <GeometrySelector 
+            key={`geometry-selector-${layoutConfig.geometrySelector}`}
+            onGeometrySelect={handleGeometrySelect} 
+            layoutPosition={layoutConfig.directory}
+          />
         )}
 
-        {/* Directory - Draggable */}
+        {/* Directory - Full height, positioned by layout */}
         {componentVisibility.directory && (
           <Directory
+            key={`directory-${existingVolumes.length}-${layoutConfig.directory}`}
             isVisible={true}
+            layoutPosition={layoutConfig.directory}
             onClose={() => {
               setComponentVisibility(prev => ({ ...prev, directory: false }));
             }}
@@ -639,6 +1210,9 @@ export default function App() {
             existingSensors={existingSensors}
             existingCompositions={existingCompositions}
             existingSpectra={existingSpectra}
+            dockedComponents={dockedComponents}
+            onDockComponent={handleDockComponent}
+            onUndockComponent={handleUndockComponent}
             onRenameObject={async (id, newName) => {
               try {
                 // Update the object name in the 3D scene
@@ -652,6 +1226,38 @@ export default function App() {
                     ? { ...volume, userData: { ...volume.userData, volumeName: newName } }
                     : volume
                 ));
+                
+                // Update the volume name in localStorage
+                try {
+                  const savedData = localStorage.getItem('mercurad_scene');
+                  if (savedData) {
+                    const sceneData = JSON.parse(savedData);
+                    if (sceneData.geometries && Array.isArray(sceneData.geometries)) {
+                      // Find and update the geometry in localStorage
+                      const updatedGeometries = sceneData.geometries.map(geometry => {
+                        if (geometry.id === id) {
+                          return {
+                            ...geometry,
+                            volumeName: newName // Add volumeName to localStorage data
+                          };
+                        }
+                        return geometry;
+                      });
+                      
+                      // Update the scene data with new geometries
+                      const updatedSceneData = {
+                        ...sceneData,
+                        geometries: updatedGeometries
+                      };
+                      
+                      // Save back to localStorage
+                      localStorage.setItem('mercurad_scene', JSON.stringify(updatedSceneData));
+                      console.log(`Volume name updated in localStorage: ${newName}`);
+                    }
+                  }
+                } catch (error) {
+                  console.error('Failed to update volume name in localStorage:', error);
+                }
                 
                 // Update the volume name in the backend if we have a current project
                 if (currentProject && apiService) {
@@ -685,18 +1291,23 @@ export default function App() {
               }
             }}
             onSelectObject={(object) => {
-              // Select the object in the 3D scene
-              if (window.selectGeometry) {
-                window.selectGeometry(object.data);
+              // Handle example loading differently
+              if (object.type === 'example') {
+                loadExampleScene(object.data);
+              } else {
+                // Select the object in the 3D scene
+                if (window.selectGeometry) {
+                  window.selectGeometry(object.data);
+                }
+                // Update the selected geometry state
+                setSelectedGeometry({
+                  type: object.objectType || object.type,
+                  id: object.id,
+                  position: object.data.position,
+                  userData: object.data.userData
+                });
+                setHasSelectedObject(true);
               }
-              // Update the selected geometry state
-              setSelectedGeometry({
-                type: object.objectType || object.type,
-                id: object.id,
-                position: object.data.position,
-                userData: object.data.userData
-              });
-              setHasSelectedObject(true);
             }}
             onToggleVisibility={(id, visible) => {
               // Toggle object visibility in 3D scene
@@ -710,31 +1321,54 @@ export default function App() {
                 }
               }
             }}
+            onClearAllObjects={handleClearAllObjects}
             selectedObjectId={selectedGeometry?.id}
           />
         )}
 
         {/* Rotation Sliders - Draggable */}
         {componentVisibility.rotationSliders && (
-          <RotationSliders onRotationChange={handleSceneRotationChange} />
+        <RotationSliders onRotationChange={handleSceneRotationChange} />
         )}
 
         {/* Volume Form - Draggable */}
         {componentVisibility.volumeForm && showVolumeForm && (
-          <VolumeForm
+        <VolumeForm
             isVisible={true}
-            onClose={handleVolumeFormClose}
-            onSave={handleVolumeFormSave}
-            onShowCompositionPanel={() => setShowCompositionPanel(true)}
-            onShowLineSpectrumPanel={() => setShowLineSpectrumPanel(true)}
-            onShowGroupSpectrumPanel={() => setShowGroupSpectrumPanel(true)}
-            onCompositionChange={handleCompositionChange}
-            onSpectrumChange={handleSpectrumChange}
-          />
+          onClose={handleVolumeFormClose}
+          onSave={handleVolumeFormSave}
+          onShowCompositionPanel={() => setShowCompositionPanel(true)}
+          onShowLineSpectrumPanel={() => setShowLineSpectrumPanel(true)}
+          onShowGroupSpectrumPanel={() => setShowGroupSpectrumPanel(true)}
+          onCompositionChange={handleCompositionChange}
+          onSpectrumChange={handleSpectrumChange}
+        />
         )}
 
-        {/* Sidebar - Right Side - Responsive positioning */}
-        <div className="absolute top-1/2 right-2 sm:right-4 transform -translate-y-1/2 pointer-events-auto">
+        {/* Layout Swap Button - Top Right */}
+        <div className="absolute top-20 right-2 sm:right-4 pointer-events-auto z-50">
+          <button
+            onClick={cycleLayout}
+            className="bg-neutral-700 hover:bg-neutral-600 text-white p-2 rounded-lg shadow-lg transition-colors duration-200 flex items-center space-x-2"
+            title="Toggle Layout (Left/Right Swap)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+              <path d="M3 8h18"/>
+              <path d="M8 3v18"/>
+              <path d="M16 3v18"/>
+            </svg>
+            <span className="text-xs font-medium">Layout</span>
+          </button>
+        </div>
+
+        {/* Sidebar - Responsive positioning based on layout config */}
+        <div className={`absolute top-1/2 transform -translate-y-1/2 pointer-events-auto ${
+          layoutConfig.sidebar === 'right' ? 'right-2 sm:right-4' : 
+          layoutConfig.sidebar === 'left' ? 'left-2 sm:left-4' :
+          layoutConfig.sidebar === 'top' ? 'top-16 left-1/2 transform -translate-x-1/2' :
+          'bottom-16 left-1/2 transform -translate-x-1/2'
+        }`}>
           <Sidebar selectedTool={selectedTool} onToolSelect={handleToolSelect} cameraMode={cameraMode} />
         </div>
 
@@ -795,13 +1429,13 @@ export default function App() {
 
         {/* Contextual Help - Draggable floating component */}
         {componentVisibility.contextualHelp && (
-          <ContextualHelp 
-            selectedTool={selectedTool}
-            hasSelectedObject={hasSelectedObject}
-            hasObjects={hasObjects}
+        <ContextualHelp 
+          selectedTool={selectedTool}
+          hasSelectedObject={hasSelectedObject}
+          hasObjects={hasObjects}
             cameraMode={cameraMode}
             windowSize={windowSize}
-          />
+        />
         )}
 
         {/* Bottom Bar - Bottom Center - Responsive positioning */}
@@ -845,12 +1479,12 @@ export default function App() {
 
       {/* Help Overlay */}
       {componentVisibility.helpOverlay && (
-        <HelpOverlay 
-          isVisible={showHelp}
-          onClose={() => setShowHelp(false)}
-        />
+      <HelpOverlay 
+        isVisible={showHelp}
+        onClose={() => setShowHelp(false)}
+      />
       )}
-      </div>
+    </div>
     </AuthProvider>
   );
 }

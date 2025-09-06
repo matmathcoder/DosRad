@@ -43,7 +43,7 @@ export default function Sidebar({ selectedTool, onToolSelect, cameraMode }) {
   };
 
   return (
-    <div className="bg-neutral-700 rounded-lg shadow-lg pointer-events-auto max-h-[80vh] overflow-y-auto">
+    <div className="bg-neutral-700 rounded-lg shadow-lg pointer-events-auto max-h-[80vh] overflow-y-auto relative" style={{ zIndex: 20 }}>
       <div className="flex flex-col p-1 sm:p-2 gap-1">
         {tools.map((tool, index) => {
           // Handle separator

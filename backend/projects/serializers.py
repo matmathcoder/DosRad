@@ -3,7 +3,8 @@ from .models import (
     Project, SceneConfiguration, Geometry, Composition, 
     Spectrum, Volume, SceneHistory, CSGOperation, Sensor,
     CompoundObject, CompoundObjectGeometry, CompoundObjectComposition,
-    CompoundObjectSpectrum, CompoundObjectSensor, CompoundObjectImport
+    CompoundObjectSpectrum, CompoundObjectSensor, CompoundObjectImport,
+    MeshConfiguration, ComputationConfiguration, ComputationResult, ToleranceConfiguration
 )
 
 
@@ -426,3 +427,34 @@ class CompleteSceneSerializer(serializers.Serializer):
             'spectra': spectra,
             'volumes': volumes
         }
+
+
+class MeshConfigurationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MeshConfiguration
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
+
+
+class ComputationConfigurationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComputationConfiguration
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
+
+
+class ComputationResultSerializer(serializers.ModelSerializer):
+    configuration_name = serializers.CharField(source='configuration.name', read_only=True)
+    configuration_type = serializers.CharField(source='configuration.config_type', read_only=True)
+    
+    class Meta:
+        model = ComputationResult
+        fields = '__all__'
+        read_only_fields = ('created_at',)
+
+
+class ToleranceConfigurationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ToleranceConfiguration
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')

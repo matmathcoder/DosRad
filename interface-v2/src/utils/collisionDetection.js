@@ -53,13 +53,16 @@ class CollisionDetector {
     }
 
     // Special collision rules:
-    // 1. Directory and Geometry Selector can't collide with each other
-    // 2. All other components can collide with each other (including Directory/Geometry Selector)
+    // 1. Directory is fixed - no collision detection needed
+    // 2. Geometry Selector can move freely without collision with Directory
+    // 3. All other components can collide with each other
     
-    if (id === 'directory' || id === 'geometrySelector') {
-      // Directory and Geometry Selector check collision with each other
-      const collision = this.checkCollision(id, newPosition, componentWidth, componentHeight);
-      return !collision.collides;
+    if (id === 'directory') {
+      // Directory is fixed - always safe
+      return true;
+    } else if (id === 'geometrySelector') {
+      // Geometry Selector can move freely - no collision with Directory
+      return true;
     } else {
       // All other components can collide with each other - no component-to-component collision check
       return true;

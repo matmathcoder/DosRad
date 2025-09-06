@@ -95,10 +95,13 @@ export default class HistoryManager {
       });
       this.refs.geometriesRef.current = [];
 
-      // Deselect current object
+      // Deselect current object and detach transform controls
       if (this.refs.selectedGeometryRef.current) {
+        // Detach transform controls if they exist
+        if (this.callbacks.detachTransformControls) {
+          this.callbacks.detachTransformControls();
+        }
         this.refs.selectedGeometryRef.current = null;
-        // Note: Transform controls would need to be handled by EventHandler
         this.callbacks.onSelectionChange && this.callbacks.onSelectionChange(false, null);
       }
 
@@ -220,7 +223,7 @@ export default class HistoryManager {
       
       // Visual feedback
       if (this.refs.rendererRef.current) {
-        const originalClearColor = this.refs.rendererRef.current.getClearColor().getHex();
+        const originalClearColor = this.refs.rendererRef.current.getClearColor();
         this.refs.rendererRef.current.setClearColor(0x004400); // Brief green flash
         setTimeout(() => {
           this.refs.rendererRef.current.setClearColor(originalClearColor);

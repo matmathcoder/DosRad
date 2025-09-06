@@ -103,8 +103,27 @@ export default class ViewManager {
   toggleMesh() {
     this.state.setShowMesh(prev => {
       const newValue = !prev;
+      // Toggle mesh visualization (wireframe mode) instead of hiding geometries
       this.refs.geometriesRef.current.forEach(mesh => {
-        mesh.visible = newValue;
+        if (mesh.material) {
+          // Store original wireframe state if not already stored
+          if (mesh.userData.originalWireframe === undefined) {
+            mesh.userData.originalWireframe = mesh.material.wireframe;
+          }
+          
+          if (newValue) {
+            // Show mesh visualization - enable wireframe for all objects
+            mesh.material.wireframe = true;
+            mesh.material.transparent = true;
+            mesh.material.opacity = 0.7;
+          } else {
+            // Hide mesh visualization - restore original material properties
+            mesh.material.wireframe = mesh.userData.originalWireframe || false;
+            mesh.material.transparent = false;
+            mesh.material.opacity = 1.0;
+          }
+          mesh.material.needsUpdate = true;
+        }
       });
       return newValue;
     });

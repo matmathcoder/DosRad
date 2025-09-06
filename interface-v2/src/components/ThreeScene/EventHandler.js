@@ -7,6 +7,9 @@ export default class EventHandler {
     this.state = state;
     this.callbacks = callbacks;
     
+    // Movement speed configuration (units per frame)
+    this.movementSpeed = 0.02;
+    
     this.transformControlsRef = null;
     this.keyState = {};
     this.modules = null; // Will be set by ThreeScene
@@ -45,6 +48,14 @@ export default class EventHandler {
     // Floor constraint refs
     this.floorLevel = 0; // Grid plane is at Y=0
     this.floorConstraintEnabled = true;
+    
+    // Multi-selection state
+    this.selectedObjects = new Set();
+    this.isBoxSelecting = false;
+    this.boxSelectStart = null;
+    this.boxSelectEnd = null;
+    this.boxSelectGeometry = null;
+    this.boxSelectMaterial = null;
     
     // Bind methods
     this.handleKeyDown = this.handleKeyDown.bind(this);
@@ -253,34 +264,34 @@ export default class EventHandler {
         
         // Up/down movement in perpendicular plane
         if (this.keyState['ArrowUp']) { 
-          targetMesh.position.addScaledVector(cameraUp, 0.1); 
+          targetMesh.position.addScaledVector(cameraUp, this.movementSpeed); 
           moved = true; 
         }
         if (this.keyState['ArrowDown']) { 
-          targetMesh.position.addScaledVector(cameraUp, -0.1); 
+          targetMesh.position.addScaledVector(cameraUp, -this.movementSpeed); 
           moved = true; 
         }
         
         // Left/right movement in perpendicular plane
         if (this.keyState['ArrowLeft']) { 
-          targetMesh.position.addScaledVector(cameraRight, -0.1); 
+          targetMesh.position.addScaledVector(cameraRight, -this.movementSpeed); 
           moved = true; 
         }
         if (this.keyState['ArrowRight']) { 
-          targetMesh.position.addScaledVector(cameraRight, 0.1); 
+          targetMesh.position.addScaledVector(cameraRight, this.movementSpeed); 
           moved = true; 
         }
       } else {
         // Fallback to world space movement if camera not available
-        if (this.keyState['ArrowUp']) { targetMesh.position.z -= 0.1; moved = true; }
-        if (this.keyState['ArrowDown']) { targetMesh.position.z += 0.1; moved = true; }
-        if (this.keyState['ArrowLeft']) { targetMesh.position.x -= 0.1; moved = true; }
-        if (this.keyState['ArrowRight']) { targetMesh.position.x += 0.1; moved = true; }
+        if (this.keyState['ArrowUp']) { targetMesh.position.z -= this.movementSpeed; moved = true; }
+        if (this.keyState['ArrowDown']) { targetMesh.position.z += this.movementSpeed; moved = true; }
+        if (this.keyState['ArrowLeft']) { targetMesh.position.x -= this.movementSpeed; moved = true; }
+        if (this.keyState['ArrowRight']) { targetMesh.position.x += this.movementSpeed; moved = true; }
       }
       
       // Q/E still move up/down in world space (Y axis)
-      if (this.keyState['KeyQ']) { targetMesh.position.y += 0.1; moved = true; }
-      if (this.keyState['KeyE']) { targetMesh.position.y -= 0.1; moved = true; }
+      if (this.keyState['KeyQ']) { targetMesh.position.y += this.movementSpeed; moved = true; }
+      if (this.keyState['KeyE']) { targetMesh.position.y -= this.movementSpeed; moved = true; }
       
       if (moved) {
         // Enforce floor constraint after keyboard movement
@@ -455,6 +466,18 @@ export default class EventHandler {
   }
   
   handleCanvasMouseMove(event) {
+    // Handle box selection
+    if (this.isBoxSelecting && this.mouseDown) {
+      const renderer = this.refs.rendererRef.current;
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mousePosition = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+      this.updateBoxSelection(mousePosition);
+      return;
+    }
+    
     // Handle rotation tool
     if (this.state.selectedToolRef.current === 'rotate') {
       this.updateRotation(event);
@@ -552,6 +575,24 @@ export default class EventHandler {
     
     this.mouseDown = true;
     
+    // Store mouse position for box selection
+    const renderer = this.refs.rendererRef.current;
+    const rect = renderer.domElement.getBoundingClientRect();
+    this.mousePosition = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+    
+    // Check if we should start box selection (select tool + no Ctrl key + no object clicked)
+    if (tool === 'select' && !event.ctrlKey && !event.shiftKey) {
+      // Start box selection timer (short delay to distinguish from click)
+      this.boxSelectTimer = setTimeout(() => {
+        if (this.mouseDown) {
+          this.startBoxSelection(this.mousePosition);
+        }
+      }, 150); // 150ms delay
+    }
+    
     // Check if vertex helper was clicked
     if (this.INTERSECTED && this.INTERSECTED.userData?.type === 'vertex-helper') {
       // Disable orbit controls during vertex manipulation
@@ -563,8 +604,6 @@ export default class EventHandler {
       return;
     }
     
-    const renderer = this.refs.rendererRef.current;
-    const rect = renderer.domElement.getBoundingClientRect();
     const pointer = new THREE.Vector2();
     pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -592,7 +631,9 @@ export default class EventHandler {
             // Brief visual feedback
             setTimeout(() => {
               if (reducedMesh.material) {
-                reducedMesh.material.color.set(0x525252); // Back to selected color
+                const originalColor = reducedMesh.userData?.originalColor || 0x404040;
+                const lighterColor = this.lightenColor(originalColor, 0.3);
+                reducedMesh.material.color.setHex(lighterColor);
               }
             }, 1000);
           }
@@ -615,22 +656,22 @@ export default class EventHandler {
         this.callbacks.onToolSelect && this.callbacks.onToolSelect(null);
       } else if (tool === 'pan') {
         // In pan mode, select the object and attach transform controls
-        this.selectGeometry(object);
+        this.selectGeometry(object, event.ctrlKey);
         // Ensure transform controls are attached to the selected object
         if (this.transformControlsRef && this.refs.selectedGeometryRef.current) {
           this.transformControlsRef.attach(this.refs.selectedGeometryRef.current);
         }
       } else if (tool === 'resize') {
         // In resize mode, select the object and show vertex helpers
-        this.selectGeometry(object);
+        this.selectGeometry(object, event.ctrlKey);
         // Vertex helpers are already created and shown in selectGeometry for resize tool
       } else if (tool === 'rotate') {
         // In rotate mode, select the object and start rotation
-        this.selectGeometry(object);
+        this.selectGeometry(object, event.ctrlKey);
         this.startRotation(event);
       } else {
         // Default select tool behavior
-        this.selectGeometry(object);
+        this.selectGeometry(object, event.ctrlKey);
       }
     } else {
       if (!this.state.csgMode) {
@@ -639,20 +680,36 @@ export default class EventHandler {
     }
   }
   
-  selectGeometry(object) {
-    if (this.refs.selectedGeometryRef.current !== object) {
-      this.deselect();
-      this.refs.selectedGeometryRef.current = object;
-      object.material.color.set(0x525252); // Selected color
+  selectGeometry(object, multiSelect = false) {
+    if (multiSelect) {
+      // Multi-selection mode: toggle selection
+      this.toggleSelection(object);
+    } else {
+      // Single selection mode: clear previous selection and select new object
+      this.clearSelection();
+      this.addToSelection(object);
+    }
+    
+    // Update transform controls for single selection
+    if (this.selectedObjects.size === 1) {
+      const selectedObject = Array.from(this.selectedObjects)[0];
+      this.refs.selectedGeometryRef.current = selectedObject;
+      
       // Ensure object has proper scale for transform controls
-      if (object.scale.x === 0 || object.scale.y === 0 || object.scale.z === 0) {
-        object.scale.set(1, 1, 1);
+      if (selectedObject.scale.x === 0 || selectedObject.scale.y === 0 || selectedObject.scale.z === 0) {
+        selectedObject.scale.set(1, 1, 1);
       }
       
       // Attach transform controls (only for select, pan, and rotate tools)
       if (this.transformControlsRef && this.state.selectedToolRef.current !== 'resize') {
-        this.transformControlsRef.attach(object);
-        this.transformControlsRef.visible = true;
+        // Check if object is in the scene graph before attaching
+        if (this.refs.sceneGroupRef.current && this.refs.sceneGroupRef.current.children.includes(selectedObject)) {
+          this.transformControlsRef.attach(selectedObject);
+          this.transformControlsRef.visible = true;
+        } else {
+          console.warn('Cannot attach TransformControls: object not in scene graph');
+          return;
+        }
         
         // Set appropriate mode based on tool
         if (this.state.selectedToolRef.current === 'rotate') {
@@ -672,21 +729,31 @@ export default class EventHandler {
       
       // Create vertex helpers for resizing (only create and show if resize tool is active)
       if (this.state.selectedToolRef.current === 'resize') {
-        this.createVertexHelpers(object);
+        this.createVertexHelpers(selectedObject);
         this.showVertexHelpers();
       }
-      
-      this.callbacks.onSelectionChange && this.callbacks.onSelectionChange(true, object);
+    } else {
+      // Multi-selection: detach transform controls
+      if (this.transformControlsRef) {
+        this.transformControlsRef.detach();
+        this.transformControlsRef.visible = false;
+      }
+      this.refs.selectedGeometryRef.current = null;
     }
   }
   
   deselect() {
-    if (this.refs.selectedGeometryRef.current) {
-      this.refs.selectedGeometryRef.current.material.color.setHex(this.refs.selectedGeometryRef.current.userData.originalColor);
-    }
+    this.clearSelection();
     this.refs.selectedGeometryRef.current = null;
     if (this.transformControlsRef) {
       this.transformControlsRef.detach();
+    }
+  }
+  
+  detachTransformControls() {
+    if (this.transformControlsRef) {
+      this.transformControlsRef.detach();
+      this.transformControlsRef.visible = false;
     }
     
     // Remove vertex helpers
@@ -695,26 +762,223 @@ export default class EventHandler {
     this.callbacks.onSelectionChange && this.callbacks.onSelectionChange(false, null);
   }
   
-  deleteSelectedGeometry() {
-    const mesh = this.refs.selectedGeometryRef.current;
-    if (mesh) {
-      // Save history state BEFORE deleting
-      if (this.modules?.historyManager) {
-        this.modules.historyManager.saveToHistory();
+  // Multi-selection methods
+  addToSelection(object) {
+    if (!this.selectedObjects.has(object)) {
+      this.selectedObjects.add(object);
+      this.highlightObject(object, true);
+      this.updateSelectionCallbacks();
+    }
+  }
+  
+  removeFromSelection(object) {
+    if (this.selectedObjects.has(object)) {
+      this.selectedObjects.delete(object);
+      this.highlightObject(object, false);
+      this.updateSelectionCallbacks();
+    }
+  }
+  
+  toggleSelection(object) {
+    if (this.selectedObjects.has(object)) {
+      this.removeFromSelection(object);
+    } else {
+      this.addToSelection(object);
+    }
+  }
+  
+  clearSelection() {
+    this.selectedObjects.forEach(object => {
+      this.highlightObject(object, false);
+    });
+    this.selectedObjects.clear();
+    this.updateSelectionCallbacks();
+  }
+  
+  highlightObject(object, selected) {
+    if (selected) {
+      // Use a lighter version of the original color for selection
+      const originalColor = object.userData?.originalColor || 0x404040;
+      const lighterColor = this.lightenColor(originalColor, 0.3); // 30% lighter
+      object.material.color.setHex(lighterColor);
+    } else {
+      // Restore original color
+      if (object.userData?.originalColor) {
+        object.material.color.setHex(object.userData.originalColor);
+      } else {
+        object.material.color.set(0x404040); // Default color
       }
+    }
+  }
+
+  // Helper method to lighten a color
+  lightenColor(color, factor) {
+    // Convert hex to RGB
+    const r = (color >> 16) & 255;
+    const g = (color >> 8) & 255;
+    const b = color & 255;
+    
+    // Lighten each component
+    const newR = Math.min(255, Math.floor(r + (255 - r) * factor));
+    const newG = Math.min(255, Math.floor(g + (255 - g) * factor));
+    const newB = Math.min(255, Math.floor(b + (255 - b) * factor));
+    
+    // Convert back to hex
+    return (newR << 16) | (newG << 8) | newB;
+  }
+  
+  updateSelectionCallbacks() {
+    const hasSelection = this.selectedObjects.size > 0;
+    const selectedObject = this.selectedObjects.size === 1 ? Array.from(this.selectedObjects)[0] : null;
+    
+    this.callbacks.onSelectionChange && this.callbacks.onSelectionChange(hasSelection, selectedObject);
+  }
+  
+  // Box selection methods
+  startBoxSelection(startPoint) {
+    this.isBoxSelecting = true;
+    this.boxSelectStart = startPoint;
+    this.boxSelectEnd = startPoint;
+    
+    // Create box selection geometry
+    this.createBoxSelectionGeometry();
+  }
+  
+  updateBoxSelection(endPoint) {
+    if (!this.isBoxSelecting) return;
+    
+    this.boxSelectEnd = endPoint;
+    this.updateBoxSelectionGeometry();
+    this.performBoxSelection();
+  }
+  
+  endBoxSelection() {
+    if (!this.isBoxSelecting) return;
+    
+    this.isBoxSelecting = false;
+    this.removeBoxSelectionGeometry();
+    
+    // Clear selection if no objects were selected
+    if (this.selectedObjects.size === 0) {
+      this.clearSelection();
+    }
+  }
+  
+  createBoxSelectionGeometry() {
+    if (!this.refs.sceneRef.current) return;
+    
+    const geometry = new THREE.PlaneGeometry(1, 1);
+    this.boxSelectMaterial = new THREE.MeshBasicMaterial({
+      color: 0x0080ff,
+      transparent: true,
+      opacity: 0.2,
+      side: THREE.DoubleSide
+    });
+    
+    this.boxSelectGeometry = new THREE.Mesh(geometry, this.boxSelectMaterial);
+    this.boxSelectGeometry.visible = false;
+    this.refs.sceneRef.current.add(this.boxSelectGeometry);
+  }
+  
+  updateBoxSelectionGeometry() {
+    if (!this.boxSelectGeometry || !this.boxSelectStart || !this.boxSelectEnd) return;
+    
+    const start = this.boxSelectStart;
+    const end = this.boxSelectEnd;
+    
+    const width = Math.abs(end.x - start.x);
+    const height = Math.abs(end.y - start.y);
+    const centerX = (start.x + end.x) / 2;
+    const centerY = (start.y + end.y) / 2;
+    
+    if (width > 0 && height > 0) {
+      this.boxSelectGeometry.scale.set(width, height, 1);
+      this.boxSelectGeometry.position.set(centerX, centerY, 0);
+      this.boxSelectGeometry.visible = true;
+    }
+  }
+  
+  performBoxSelection() {
+    if (!this.boxSelectStart || !this.boxSelectEnd) return;
+    
+    const start = this.boxSelectStart;
+    const end = this.boxSelectEnd;
+    
+    // Normalize coordinates
+    const minX = Math.min(start.x, end.x);
+    const maxX = Math.max(start.x, end.x);
+    const minY = Math.min(start.y, end.y);
+    const maxY = Math.max(start.y, end.y);
+    
+    // Check each geometry against the selection box
+    this.refs.geometriesRef.current.forEach(object => {
+      const position = object.position;
+      const screenPosition = this.worldToScreen(position);
       
-      // Remove geometry using geometry manager (this will invalidate shadow maps)
+      if (screenPosition.x >= minX && screenPosition.x <= maxX &&
+          screenPosition.y >= minY && screenPosition.y <= maxY) {
+        this.addToSelection(object);
+      }
+    });
+  }
+  
+  worldToScreen(worldPosition) {
+    const vector = worldPosition.clone();
+    
+    // Get the active camera from the camera controller
+    const camera = this.modules?.cameraController?.getActiveCamera();
+    if (!camera) {
+      console.warn('No camera available for worldToScreen conversion');
+      return { x: 0, y: 0 };
+    }
+    
+    vector.project(camera);
+    
+    const width = this.refs.rendererRef.current.domElement.clientWidth;
+    const height = this.refs.rendererRef.current.domElement.clientHeight;
+    
+    return {
+      x: (vector.x * 0.5 + 0.5) * width,
+      y: (vector.y * -0.5 + 0.5) * height
+    };
+  }
+  
+  removeBoxSelectionGeometry() {
+    if (this.boxSelectGeometry) {
+      this.refs.sceneRef.current.remove(this.boxSelectGeometry);
+      this.boxSelectGeometry.geometry.dispose();
+      this.boxSelectGeometry.material.dispose();
+      this.boxSelectGeometry = null;
+    }
+    if (this.boxSelectMaterial) {
+      this.boxSelectMaterial.dispose();
+      this.boxSelectMaterial = null;
+    }
+  }
+  
+  deleteSelectedGeometry() {
+    if (this.selectedObjects.size === 0) return;
+    
+    // Save history state BEFORE deleting
+    if (this.modules?.historyManager) {
+      this.modules.historyManager.saveToHistory();
+    }
+    
+    // Delete all selected objects
+    const objectsToDelete = Array.from(this.selectedObjects);
+    objectsToDelete.forEach(mesh => {
       if (this.modules?.geometryManager) {
         this.modules.geometryManager.deleteGeometry(mesh);
       }
-      
-      // Deselect and clean up transform controls
-      this.deselect();
-      
-      // Auto-save scene after deleting geometry
-      if (this.modules?.persistenceManager) {
-        this.modules.persistenceManager.saveScene();
-      }
+    });
+    
+    // Clear selection
+    this.clearSelection();
+    this.refs.selectedGeometryRef.current = null;
+    
+    // Auto-save scene after deleting geometry
+    if (this.modules?.persistenceManager) {
+      this.modules.persistenceManager.saveScene();
     }
   }
   
@@ -838,9 +1102,15 @@ export default class EventHandler {
       // Visual feedback - make selected objects glow with different colors
       const selectionCount = this.csgSelectedObjects.length;
       if (selectionCount === 1) {
-        object.material.color.set(0x737373); // Handler color for first selection
+        // First selection - use a medium lightening
+        const originalColor = object.userData?.originalColor || 0x404040;
+        const mediumLighterColor = this.lightenColor(originalColor, 0.2);
+        object.material.color.setHex(mediumLighterColor);
       } else if (selectionCount === 2) {
-        object.material.color.set(0x525252); // Selected color for second selection
+        // Second selection - use a stronger lightening
+        const originalColor = object.userData?.originalColor || 0x404040;
+        const lighterColor = this.lightenColor(originalColor, 0.4);
+        object.material.color.setHex(lighterColor);
       }
       // If we have two objects, perform the operation
       if (selectionCount === 2) {
@@ -997,7 +1267,9 @@ export default class EventHandler {
             mesh.userData.originalColor = mesh.material.color.getHex();
           }
           // Make objects slightly brighter to indicate they're selectable
-          mesh.material.color.setHex(0x737373); // Handler color for selectable
+          const originalColor = mesh.userData?.originalColor || 0x404040;
+          const selectableColor = this.lightenColor(originalColor, 0.15); // 15% lighter for selectable indication
+          mesh.material.color.setHex(selectableColor);
         }
       });
     }
@@ -1276,6 +1548,17 @@ export default class EventHandler {
   
   handlePointerUp(event) {
     this.mouseDown = false;
+    
+    // Clear box selection timer
+    if (this.boxSelectTimer) {
+      clearTimeout(this.boxSelectTimer);
+      this.boxSelectTimer = null;
+    }
+    
+    // Handle box selection end
+    if (this.isBoxSelecting) {
+      this.endBoxSelection();
+    }
     
     // Handle rotation end
     if (this.state.selectedToolRef.current === 'rotate') {

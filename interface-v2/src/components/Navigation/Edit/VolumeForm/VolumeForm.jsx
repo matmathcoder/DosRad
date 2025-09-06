@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Save, RotateCcw, Move, Edit, Plus } from 'lucide-react';
+import { X, Save, RotateCcw, Move, Edit, Plus, Grid3X3 } from 'lucide-react';
 import collisionDetector from '../../../../utils/collisionDetection';
+import MeshPanel from './MeshPanel';
 
 export default function VolumeForm({ 
   isVisible, 
@@ -28,6 +29,7 @@ export default function VolumeForm({
   });
 
   // Panel visibility is now managed by parent component
+  const [showMeshPanel, setShowMeshPanel] = useState(false);
 
   // Mock data - in real app this would come from database/API
   const [existingCompositions] = useState([
@@ -192,18 +194,31 @@ export default function VolumeForm({
 
   if (!isVisible) return null;
 
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('component-type', 'volume-form');
+    e.dataTransfer.setData('component-data', JSON.stringify({
+      name: 'Volume Form',
+      type: 'volume-form',
+      formData
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
   return (
-    <div 
-      ref={formRef}
-      className="volume-form-container bg-neutral-800 rounded-lg shadow-2xl border border-neutral-600 w-[500px] max-h-[80vh] pointer-events-auto absolute"
-      style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        cursor: isDragging ? 'grabbing' : 'default',
-        zIndex: 25
-      }}
-      onMouseDown={handleMouseDown}
-    >
+    <>
+      <div 
+        ref={formRef}
+        className="volume-form-container bg-neutral-800 rounded-lg shadow-2xl border border-neutral-600 w-[500px] max-h-[80vh] pointer-events-auto absolute"
+        style={{
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          cursor: isDragging ? 'grabbing' : 'default',
+          zIndex: 50
+        }}
+        onMouseDown={handleMouseDown}
+        draggable="true"
+        onDragStart={handleDragStart}
+      >
         {/* Header */}
         <div className="flex items-center justify-between bg-neutral-700 rounded-t-lg px-4 py-3 drag-handle cursor-grab">
           <div className="flex items-center space-x-2">
@@ -456,6 +471,21 @@ export default function VolumeForm({
                   )}
                 </div>
 
+                {/* Mesh Configuration Button */}
+                <div className="mt-4 pt-3 border-t border-neutral-600">
+                  <button
+                    onClick={() => setShowMeshPanel(true)}
+                    className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs rounded flex items-center justify-center gap-2"
+                    title="Configure mesh for source volume"
+                  >
+                    <Grid3X3 size={14} />
+                    Configure Mesh...
+                  </button>
+                  <p className="text-neutral-400 text-xs mt-1 text-center">
+                    Set up mesh configuration for Monte-Carlo calculations
+                  </p>
+                </div>
+
                 {/* Calculation Note */}
                 {formData.gammaSelectionMode === 'by-lines' && formData.spectrum?.lines?.length > 20 && (
                   <div className="p-2 bg-yellow-900/30 border border-yellow-600/50 rounded">
@@ -492,6 +522,29 @@ export default function VolumeForm({
             Save Volume
           </button>
         </div>
-    </div>
+      </div>
+
+      {/* Mesh Panel */}
+      {showMeshPanel && (
+        <MeshPanel
+          isVisible={showMeshPanel}
+          onClose={() => setShowMeshPanel(false)}
+          selectedVolume={{
+            id: Date.now(), // Generate a temporary ID
+            type: formData.geometryType,
+            position: { x: 0, y: 0, z: 0 },
+            scale: { x: 1, y: 1, z: 1 }
+          }}
+          onMeshValidate={(meshData) => {
+            console.log('Mesh validated:', meshData);
+            // Store mesh configuration in form data
+            setFormData(prev => ({
+              ...prev,
+              meshConfiguration: meshData
+            }));
+          }}
+        />
+      )}
+    </>
   );
 }

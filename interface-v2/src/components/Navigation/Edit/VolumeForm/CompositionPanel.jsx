@@ -231,6 +231,17 @@ export default function CompositionPanel({
 
   const totalPercentage = compositionData.elements.reduce((sum, el) => sum + el.percentage, 0);
 
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('component-type', 'composition-panel');
+    e.dataTransfer.setData('component-data', JSON.stringify({
+      name: 'Composition Panel',
+      type: 'composition-panel',
+      compositionData,
+      selectedElementIndex
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
   return (
     <div 
       ref={formRef}
@@ -238,9 +249,12 @@ export default function CompositionPanel({
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        cursor: isDragging ? 'grabbing' : 'default'
+        cursor: isDragging ? 'grabbing' : 'default',
+        zIndex: 50
       }}
       onMouseDown={handleMouseDown}
+      draggable="true"
+      onDragStart={handleDragStart}
     >
       {/* Header */}
       <div className="flex items-center justify-between bg-neutral-700 rounded-t-lg px-4 py-3 drag-handle cursor-grab">

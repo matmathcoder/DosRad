@@ -258,6 +258,17 @@ export default function CompoundVolume({
 
   if (!isVisible) return null;
 
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('component-type', 'compound-volume');
+    e.dataTransfer.setData('component-data', JSON.stringify({
+      name: 'Compound Volume',
+      type: 'compound-volume',
+      currentDirectory,
+      selectedObject
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
   return (
     <>
       <div 
@@ -266,9 +277,12 @@ export default function CompoundVolume({
         style={{
           left: `${position.x}px`,
           top: `${position.y}px`,
-          cursor: isDragging ? 'grabbing' : 'default'
+          cursor: isDragging ? 'grabbing' : 'default',
+          zIndex: 50
         }}
         onMouseDown={handleMouseDown}
+        draggable="true"
+        onDragStart={handleDragStart}
       >
         {/* Header */}
         <div className="flex items-center justify-between bg-neutral-700 rounded-t-lg px-4 py-3 drag-handle cursor-grab">

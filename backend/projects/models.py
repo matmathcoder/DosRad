@@ -486,3 +486,97 @@ class ExampleSceneVolume(models.Model):
     
     class Meta:
         ordering = ['volume_name']
+
+
+class MeshConfiguration(models.Model):
+    """Mesh configuration for source volumes"""
+    volume = models.ForeignKey(Volume, on_delete=models.CASCADE, related_name='mesh_configurations')
+    coordinate_system = models.CharField(max_length=20, choices=[
+        ('cartesian', 'Cartesian'),
+        ('cylindrical', 'Cylindrical'),
+        ('spherical', 'Spherical')
+    ])
+    bounds = models.JSONField(help_text="Mesh bounds for each coordinate")
+    subdivisions = models.JSONField(help_text="Subdivision configuration for each interval")
+    is_validated = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'mesh_configurations'
+        verbose_name = 'Mesh Configuration'
+        verbose_name_plural = 'Mesh Configurations'
+
+    def __str__(self):
+        return f"Mesh for {self.volume.name} - {self.coordinate_system}"
+
+
+class ComputationConfiguration(models.Model):
+    """Computation configuration settings"""
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='computation_configurations')
+    name = models.CharField(max_length=100)
+    config_type = models.CharField(max_length=20, choices=[
+        ('nominal', 'Nominal'),
+        ('minimum', 'Minimum'),
+        ('maximum', 'Maximum')
+    ])
+    convergence_criterion = models.FloatField(default=0.01, help_text="Convergence criterion (0.001-0.1)")
+    particles_per_sample = models.IntegerField(default=10000, help_text="Number of particles per sample")
+    number_of_samples = models.IntegerField(default=100, help_text="Maximum number of samples")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'computation_configurations'
+        verbose_name = 'Computation Configuration'
+        verbose_name_plural = 'Computation Configurations'
+
+    def __str__(self):
+        return f"{self.name} - {self.config_type}"
+
+
+class ComputationResult(models.Model):
+    """Results from Monte-Carlo calculations"""
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='computation_results')
+    configuration = models.ForeignKey(ComputationConfiguration, on_delete=models.CASCADE, related_name='results')
+    dose_rate = models.FloatField(help_text="Dose rate in μSv/h")
+    uncertainty = models.FloatField(help_text="Uncertainty in dose rate")
+    computation_time = models.IntegerField(help_text="Computation time in seconds")
+    converged = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=[
+        ('success', 'Success'),
+        ('warning', 'Warning'),
+        ('error', 'Error')
+    ])
+    log_data = models.JSONField(null=True, blank=True, help_text="Computation log data")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'computation_results'
+        verbose_name = 'Computation Result'
+        verbose_name_plural = 'Computation Results'
+
+    def __str__(self):
+        return f"{self.configuration.name} - {self.dose_rate:.2e} μSv/h"
+
+
+class ToleranceConfiguration(models.Model):
+    """Tolerance configuration for delta calculations"""
+    volume = models.ForeignKey(Volume, on_delete=models.CASCADE, related_name='tolerance_configurations')
+    coordinate = models.CharField(max_length=10, help_text="Coordinate name (x, y, z, r, phi, theta)")
+    plus_delta = models.FloatField(default=0.0, help_text="Positive delta value")
+    plus_contribution = models.CharField(max_length=1, choices=[('+', '+'), ('-', '-')], default='+')
+    minus_delta = models.FloatField(default=0.0, help_text="Negative delta value")
+    minus_contribution = models.CharField(max_length=1, choices=[('+', '+'), ('-', '-')], default='+')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'tolerance_configurations'
+        verbose_name = 'Tolerance Configuration'
+        verbose_name_plural = 'Tolerance Configurations'
+
+    def __str__(self):
+        return f"Tolerance for {self.volume.name} - {self.coordinate}"
