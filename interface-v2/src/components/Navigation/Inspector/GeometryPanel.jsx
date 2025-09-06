@@ -501,9 +501,7 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
       deltas,
       predominatingVolume: intersectionWarning ? predominatingVolume : null
     };
-    
-    console.log('Saving geometry data:', geometryData);
-    onClose(geometryData);
+ onClose(geometryData);
   };
 
   // Dragging functions
@@ -511,8 +509,7 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
     if (e.target.closest('.drag-handle')) {
       e.preventDefault();
       e.stopPropagation();
-      console.log('Starting drag on GeometryPanel');
-      setIsDragging(true);
+   setIsDragging(true);
       setDragStart({
         x: e.clientX - position.x,
         y: e.clientY - position.y
@@ -568,8 +565,7 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
         onMouseDown={handleMouseDown}
         onClick={(e) => {
           e.stopPropagation();
-          console.log('GeometryPanel clicked');
-        }}
+     }}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-neutral-600 bg-neutral-750 drag-handle cursor-grab">

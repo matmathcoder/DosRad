@@ -259,6 +259,13 @@ class ApiService {
     });
   }
 
+  async updateVolumeName(projectId, volumeId, newName) {
+    return this.request(`/projects/${projectId}/volumes/${volumeId}/update-name/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: newName }),
+    });
+  }
+
   // Scene history endpoints
   async getSceneHistory(projectId) {
     return this.request(`/projects/${projectId}/history/`);

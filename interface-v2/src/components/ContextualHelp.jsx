@@ -15,6 +15,7 @@ import {
   Camera,
   MousePointer
 } from 'lucide-react';
+import collisionDetector from '../utils/collisionDetection';
 
 export default function ContextualHelp({ selectedTool, hasSelectedObject, hasObjects, cameraMode, windowSize }) {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -154,15 +155,23 @@ export default function ContextualHelp({ selectedTool, hasSelectedObject, hasObj
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
     
-    // Keep within screen bounds with margins
-    const margin = 20;
-    const maxX = window.innerWidth - (isMaximized ? 400 : 300) - margin;
-    const maxY = window.innerHeight - (isMaximized ? 400 : 200) - margin;
+    // Check if the new position is safe (no collision with navigation and within bounds)
+    const componentWidth = isMaximized ? 400 : 300;
+    const componentHeight = isMaximized ? 400 : 200;
     
-    const boundedX = Math.max(margin, Math.min(newX, maxX));
-    const boundedY = Math.max(margin, Math.min(newY, maxY));
+    const isSafe = collisionDetector.isPositionSafe(
+      'contextualHelp',
+      { x: newX, y: newY },
+      componentWidth,
+      componentHeight,
+      window.innerWidth,
+      window.innerHeight
+    );
     
-    setPosition({ x: boundedX, y: boundedY });
+    // Only update position if it's safe
+    if (isSafe) {
+      setPosition({ x: newX, y: newY });
+    }
   };
 
   const handleMouseUp = () => {
@@ -200,7 +209,7 @@ export default function ContextualHelp({ selectedTool, hasSelectedObject, hasObj
         left: `${position.x}px`,
         top: `${position.y}px`,
         cursor: isDragging ? 'grabbing' : 'default',
-        zIndex: 40
+        zIndex: 25
       }}
       onMouseDown={handleMouseDown}
     >

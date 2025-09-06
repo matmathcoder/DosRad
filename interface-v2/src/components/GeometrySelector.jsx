@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Box, Eclipse, Cylinder, Cone, X, Maximize2, Minus, Move } from 'lucide-react';
+import collisionDetector from '../utils/collisionDetection';
 
 export default function GeometrySelector({ onGeometrySelect }) {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -255,15 +256,23 @@ export default function GeometrySelector({ onGeometrySelect }) {
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
     
-    // Keep within screen bounds with margins
-    const margin = 20;
-    const maxX = window.innerWidth - (isMaximized ? 320 : 160) - margin; // selector width
-    const maxY = window.innerHeight - (isMaximized ? 320 : 160) - margin; // selector height
+    // Check if the new position is safe (no collision and within bounds)
+    const componentWidth = isMaximized ? 320 : 160;
+    const componentHeight = isMinimized ? 32 : (isMaximized ? 320 : 160);
     
-    const boundedX = Math.max(margin, Math.min(newX, maxX));
-    const boundedY = Math.max(margin, Math.min(newY, maxY));
+    const isSafe = collisionDetector.isPositionSafe(
+      'geometrySelector',
+      { x: newX, y: newY },
+      componentWidth,
+      componentHeight,
+      window.innerWidth,
+      window.innerHeight
+    );
     
-    setPosition({ x: boundedX, y: boundedY });
+    // Only update position if it's safe
+    if (isSafe) {
+      setPosition({ x: newX, y: newY });
+    }
   };
 
   const handleMouseUp = () => {
@@ -280,6 +289,22 @@ export default function GeometrySelector({ onGeometrySelect }) {
       };
     }
   }, [isDragging]);
+
+  // Register with collision detector
+  useEffect(() => {
+    const getBounds = () => ({
+      x: position.x,
+      y: position.y,
+      width: isMaximized ? 320 : 160,
+      height: isMinimized ? 32 : (isMaximized ? 320 : 160)
+    });
+
+    collisionDetector.registerComponent('geometrySelector', getBounds);
+
+    return () => {
+      collisionDetector.unregisterComponent('geometrySelector');
+    };
+  }, [position, isMinimized, isMaximized]);
 
   return (
     <div 

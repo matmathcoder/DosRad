@@ -206,8 +206,7 @@ export default function ProfileDetails({ user, onClose, onEditProfile }) {
               if (onEditProfile) {
                 onEditProfile();
               }
-              console.log('Edit profile');
-            }}
+         }}
             className="flex-1 bg-neutral-600 hover:bg-neutral-500 text-white py-2 px-4 rounded text-sm font-medium"
           >
             Edit Profile

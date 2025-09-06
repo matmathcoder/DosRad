@@ -107,8 +107,7 @@ export default function Projects({ user, onClose, onLoadProject }) {
           if (onLoadProject) {
             onLoadProject(projectId);
           }
-          console.log('Loading project:', projectId);
-          break;
+       break;
       }
       fetchProjects(); // Refresh projects list
     } catch (error) {
@@ -188,8 +187,7 @@ export default function Projects({ user, onClose, onLoadProject }) {
           <button
             onClick={() => {
               // Handle new project creation
-              console.log('Create new project');
-            }}
+         }}
             className="p-1 hover:bg-neutral-600 rounded text-white"
             title="New Project"
           >

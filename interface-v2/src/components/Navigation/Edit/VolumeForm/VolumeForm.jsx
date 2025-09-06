@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Save, RotateCcw, Move, Edit, Plus } from 'lucide-react';
+import collisionDetector from '../../../../utils/collisionDetection';
 
 export default function VolumeForm({ 
   isVisible, 
@@ -58,8 +59,7 @@ export default function VolumeForm({
   };
 
   const handleSave = () => {
-    console.log('Saving volume:', formData);
-    onSave(formData);
+ onSave(formData);
     handleReset();
   };
 
@@ -94,8 +94,7 @@ export default function VolumeForm({
 
   const handleCompositionStore = (compositionData) => {
     // In real app, this would save to database
-    console.log('Storing composition:', compositionData);
-    handleCompositionUse(compositionData);
+ handleCompositionUse(compositionData);
   };
 
   const handleCompositionSelect = (compositionName) => {
@@ -118,8 +117,7 @@ export default function VolumeForm({
 
   const handleSpectrumSaveAs = (spectrumData) => {
     // In real app, this would save to database
-    console.log('Saving spectrum:', spectrumData);
-    handleSpectrumValidate(spectrumData);
+ handleSpectrumValidate(spectrumData);
   };
 
   const handleSpectrumSelect = (spectrumName) => {
@@ -158,15 +156,23 @@ export default function VolumeForm({
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
     
-    // Keep within screen bounds with margins
-    const margin = 20;
-    const maxX = window.innerWidth - 500 - margin; // form width
-    const maxY = window.innerHeight - 600 - margin; // approximate form height
+    // Check if the new position is safe (no collision with navigation and within bounds)
+    const componentWidth = 500;
+    const componentHeight = 600;
     
-    const boundedX = Math.max(margin, Math.min(newX, maxX));
-    const boundedY = Math.max(margin, Math.min(newY, maxY));
+    const isSafe = collisionDetector.isPositionSafe(
+      'volumeForm',
+      { x: newX, y: newY },
+      componentWidth,
+      componentHeight,
+      window.innerWidth,
+      window.innerHeight
+    );
     
-    setPosition({ x: boundedX, y: boundedY });
+    // Only update position if it's safe
+    if (isSafe) {
+      setPosition({ x: newX, y: newY });
+    }
   };
 
   const handleMouseUp = () => {
@@ -194,7 +200,7 @@ export default function VolumeForm({
         left: `${position.x}px`,
         top: `${position.y}px`,
         cursor: isDragging ? 'grabbing' : 'default',
-        zIndex: 40
+        zIndex: 25
       }}
       onMouseDown={handleMouseDown}
     >

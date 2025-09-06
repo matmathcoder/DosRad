@@ -8,6 +8,8 @@ import HistoryManager from './HistoryManager';
 import PersistenceManager from './PersistenceManager';
 import ViewManager from './ViewManager';
 import EventHandler from './EventHandler';
+import ContextMenu from './ContextMenu';
+import MeshPropertiesPanel from './MeshPropertiesPanel';
 
 export default function ThreeScene({ 
   selectedTool, 
@@ -15,7 +17,9 @@ export default function ThreeScene({
   onToolSelect, 
   onSelectionChange, 
   onAxisChange, 
-  onViewModeChange 
+  onViewModeChange,
+  onGeometryDeleted,
+  onGeometryVisibilityChanged
 }) {
   const canvasRef = useRef();
   
@@ -37,6 +41,16 @@ export default function ThreeScene({
   const [showMesh, setShowMesh] = useState(true);
   const [showCutPlane, setShowCutPlane] = useState(false);
   const [showSolidAngleLines, setShowSolidAngleLines] = useState(false);
+  
+  // Context menu state
+  const [contextMenuVisible, setContextMenuVisible] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [contextMenuObject, setContextMenuObject] = useState(null);
+  
+  // Panel states
+  const [geometryPanelVisible, setGeometryPanelVisible] = useState(false);
+  const [volumePanelVisible, setVolumePanelVisible] = useState(false);
+  const [meshPropertiesVisible, setMeshPropertiesVisible] = useState(false);
   
   // Tool ref
   const selectedToolRef = useRef('select');
@@ -101,7 +115,30 @@ export default function ThreeScene({
       onToolSelect,
       onSelectionChange,
       onAxisChange,
-      onViewModeChange
+      onViewModeChange,
+      onGeometryDeleted,
+      onGeometryVisibilityChanged,
+      onContextMenuShow: (data) => {
+        setContextMenuVisible(data.visible);
+        setContextMenuPosition(data.position);
+        setContextMenuObject(data.object);
+      },
+      onContextMenuHide: () => {
+        setContextMenuVisible(false);
+        setContextMenuObject(null);
+      },
+      onOpenGeometryPanel: (object) => {
+        setGeometryPanelVisible(true);
+        setContextMenuObject(object);
+      },
+      onOpenVolumePanel: (object) => {
+        setVolumePanelVisible(true);
+        setContextMenuObject(object);
+      },
+      onOpenMeshProperties: (object) => {
+        setMeshPropertiesVisible(true);
+        setContextMenuObject(object);
+      }
     };
     
     // Initialize modules
@@ -189,6 +226,20 @@ export default function ThreeScene({
       onGeometryCreate(createGeometryFunction);
     }
   }, [onGeometryCreate]);
+
+  // Expose sensor creation function to parent
+  useEffect(() => {
+    if (geometryManager.current) {
+      window.createSensor = (sensorData) => {
+        const sensor = geometryManager.current.createSensor(sensorData);
+        if (sensor && eventHandler.current) {
+          // Auto-select the newly created sensor
+          eventHandler.current.selectGeometry(sensor);
+        }
+        return sensor;
+      };
+    }
+  }, []);
   
   // Handle tool selection changes
   useEffect(() => {
@@ -247,9 +298,99 @@ export default function ThreeScene({
           return null;
         }
       };
+      
+      // Expose geometry deletion function
+      window.removeGeometry = (geometryId) => {
+        try {
+          const geometries = geometriesRef.current;
+          const geometry = geometries.find(g => g.userData?.id === geometryId);
+          if (geometry) {
+            geometryManager.current.deleteGeometry(geometry);
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error('Error removing geometry:', error);
+          return false;
+        }
+      };
+      
+      // Expose geometry selection function
+      window.selectGeometry = (geometryData) => {
+        try {
+          const geometries = geometriesRef.current;
+          const geometry = geometries.find(g => g.userData?.id === geometryData.id);
+          if (geometry && eventHandler.current) {
+            eventHandler.current.selectGeometry(geometry);
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error('Error selecting geometry:', error);
+          return false;
+        }
+      };
+      
+      // Expose geometry visibility toggle function
+      window.toggleGeometryVisibility = (geometryId, visible) => {
+        try {
+          const geometries = geometriesRef.current;
+          const geometry = geometries.find(g => g.userData?.id === geometryId);
+          if (geometry) {
+            geometry.visible = visible;
+            // Also update the userData for consistency
+            if (geometry.userData) {
+              geometry.userData.visible = visible;
+            }
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error('Error toggling geometry visibility:', error);
+          return false;
+        }
+      };
+      
+      // Expose function to get all geometries for export
+      window.getAllGeometries = () => {
+        try {
+          return geometriesRef.current.filter(geometry => 
+            geometry.userData && 
+            geometry.userData.type && 
+            geometry.userData.type !== 'solidAngleLine'
+          );
+        } catch (error) {
+          console.error('Error getting geometries:', error);
+          return [];
+        }
+      };
+      
+      // Expose function to update geometry name
+      window.updateGeometryName = (geometryId, newName) => {
+        try {
+          const geometries = geometriesRef.current;
+          const geometry = geometries.find(g => g.userData?.id === geometryId);
+          if (geometry && geometry.userData) {
+            geometry.userData.volumeName = newName;
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error('Error updating geometry name:', error);
+          return false;
+        }
+      };
     }
   }, [viewMode, materialMode]);
-  
+
+  // Ensure context menu event listener is set up
+  useEffect(() => {
+    if (canvasRef.current && eventHandler.current) {
+      // Re-setup event listeners to ensure context menu is included
+      eventHandler.current.setupEventListeners();
+    }
+  }, [canvasRef.current]);
+
   return (
     <div className="w-full h-full relative">
       <canvas 
@@ -264,6 +405,41 @@ export default function ThreeScene({
         onDragOver={(e) => eventHandler.current?.handleDragOver(e)}
         onDragLeave={(e) => eventHandler.current?.handleDragLeave(e)}
         onDrop={(e) => eventHandler.current?.handleDrop(e)}
+      />
+      
+      {/* Context Menu */}
+      <ContextMenu
+        isVisible={contextMenuVisible}
+        position={contextMenuPosition}
+        onClose={() => setContextMenuVisible(false)}
+        onDelete={() => {
+          if (contextMenuObject) {
+            geometryManager.current?.deleteGeometry(contextMenuObject);
+          }
+        }}
+        onCopy={() => {
+          // Copy functionality (implement if needed)
+          console.log('Copy object:', contextMenuObject);
+        }}
+        onDuplicate={() => {
+          if (contextMenuObject) {
+            geometryManager.current?.duplicateGeometry(contextMenuObject);
+          }
+        }}
+        onOpenGeometryProperties={() => setGeometryPanelVisible(true)}
+        onOpenVolumeProperties={() => setVolumePanelVisible(true)}
+        onOpenMeshProperties={() => setMeshPropertiesVisible(true)}
+        selectedObject={contextMenuObject}
+      />
+      
+      {/* Mesh Properties Panel */}
+      <MeshPropertiesPanel
+        isVisible={meshPropertiesVisible}
+        onClose={() => setMeshPropertiesVisible(false)}
+        onSave={(meshData) => {
+          console.log('Mesh properties saved:', meshData);
+        }}
+        selectedObject={contextMenuObject}
       />
     </div>
   );

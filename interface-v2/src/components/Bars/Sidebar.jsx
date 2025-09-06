@@ -10,14 +10,19 @@ import {
   Plus,
   Minus,
   SquaresIntersect,
-  Split
+  Split,
+  Move3D,
+  MoveDiagonal,
+  RotateCcw
 } from 'lucide-react';
 
 export default function Sidebar({ selectedTool, onToolSelect, cameraMode }) {
 
   const tools = [
-    { icon: MousePointer2, name: 'Select', id: 'select', description: 'Direct object manipulation' },
+    { icon: MousePointer2, name: 'Select', id: 'select', description: 'Select and move objects with transform controls' },
     { icon: Hand, name: 'Move', id: 'pan', description: 'Move/rotate objects (Ctrl+Alt for rotation)' },
+    { icon: MoveDiagonal, name: 'Resize', id: 'resize', description: 'Resize objects with vertex handlers and wireframe box' },
+    { icon: RotateCcw, name: 'Rotate', id: 'rotate', description: 'Rotate selected object with smooth mouse control' },
     { icon: House, name: 'Home', id: 'home', description: 'Return to saved viewpoint' },
     { icon: HousePlus, name: 'Add Home', id: 'add-home', description: 'Save current viewpoint' },
     { icon: Eye, name: 'View All', id: 'view', description: 'Frame entire scene' },

@@ -18,6 +18,7 @@ import {
   Maximize2,
   Minus as MinusIcon,
 } from 'lucide-react';
+import collisionDetector from '../utils/collisionDetection';
 
 export default function HelpOverlay({ isVisible, onClose }) {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -124,15 +125,23 @@ export default function HelpOverlay({ isVisible, onClose }) {
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
     
-    // Keep within screen bounds with margins
-    const margin = 20;
-    const maxX = window.innerWidth - (isMaximized ? 600 : 400) - margin;
-    const maxY = window.innerHeight - (isMaximized ? 600 : 400) - margin;
+    // Check if the new position is safe (no collision with navigation and within bounds)
+    const componentWidth = isMaximized ? 600 : 400;
+    const componentHeight = isMaximized ? 600 : 400;
     
-    const boundedX = Math.max(margin, Math.min(newX, maxX));
-    const boundedY = Math.max(margin, Math.min(newY, maxY));
+    const isSafe = collisionDetector.isPositionSafe(
+      'helpOverlay',
+      { x: newX, y: newY },
+      componentWidth,
+      componentHeight,
+      window.innerWidth,
+      window.innerHeight
+    );
     
-    setPosition({ x: boundedX, y: boundedY });
+    // Only update position if it's safe
+    if (isSafe) {
+      setPosition({ x: newX, y: newY });
+    }
   };
 
   const handleMouseUp = () => {

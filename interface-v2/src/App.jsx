@@ -4,22 +4,29 @@ import ThreeScene from './components/ThreeScene';
 import Navigation from './components/Bars/Navigation';
 import GeometrySelector from './components/GeometrySelector';
 import Sidebar from './components/Bars/Sidebar';
-import VolumeForm from './components/VolumeForm/VolumeForm';
-import CompositionPanel from './components/VolumeForm/CompositionPanel';
-import LineSpectrumPanel from './components/VolumeForm/LineSpectrumPanel';
-import GroupSpectrumPanel from './components/VolumeForm/GroupSpectrumPanel';
-import GeometryPanel from './components/GeometryPanel';
+import VolumeForm from './components/Navigation/Edit/VolumeForm/VolumeForm';
+import CompositionPanel from './components/Navigation/Edit/VolumeForm/CompositionPanel';
+import LineSpectrumPanel from './components/Navigation/Edit/VolumeForm/LineSpectrumPanel';
+import GroupSpectrumPanel from './components/Navigation/Edit/VolumeForm/GroupSpectrumPanel';
+import GeometryPanel from './components/Navigation/Inspector/GeometryPanel';
+import SensorPanel from './components/Navigation/Edit/Insert/SensorPanel';
+import CompoundVolume from './components/Navigation/Edit/Insert/CompoundVolume';
 import HelpOverlay from './components/HelpOverlay';
 import ContextualHelp from './components/ContextualHelp';
 import BottomBar from './components/Bars/BottomBar';
 import RotationSliders from './components/RotationSliders';
+import Directory from './components/Directory';
 import { AuthProvider } from './contexts/AuthContext';
+import ApiService from './services/api';
 
 export default function App() {
   const [showVolumeForm, setShowVolumeForm] = useState(false);
   const [showGeometryPanel, setShowGeometryPanel] = useState(false);
+  const [showSensorPanel, setShowSensorPanel] = useState(false);
+  const [showCompoundVolume, setShowCompoundVolume] = useState(false);
   const [selectedGeometry, setSelectedGeometry] = useState(null);
   const [existingVolumes, setExistingVolumes] = useState([]);
+  const [existingSensors, setExistingSensors] = useState([]);
   const [selectedTool, setSelectedTool] = useState('select');
   const [createGeometryFunction, setCreateGeometryFunction] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -37,7 +44,10 @@ export default function App() {
     helpOverlay: true,
     geometrySelector: true,
     volumeForm: false,
-    rotationSliders: true,
+    sensorPanel: false,
+    compoundVolume: false,
+    directory: true,
+    rotationSliders: false,
     debugPanel: false
   });
 
@@ -45,6 +55,10 @@ export default function App() {
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
   const [showLineSpectrumPanel, setShowLineSpectrumPanel] = useState(false);
   const [showGroupSpectrumPanel, setShowGroupSpectrumPanel] = useState(false);
+
+  // API service and current project
+  const apiService = ApiService;
+  const [currentProject, setCurrentProject] = useState(null);
 
   // Current composition and spectrum data
   const [currentComposition, setCurrentComposition] = useState(null);
@@ -64,11 +78,22 @@ export default function App() {
   ]);
 
   const handleShowVolumeForm = () => {
-    setShowVolumeForm(true);
+ setShowVolumeForm(true);
+    // Also ensure the volume form component is visible
+    setComponentVisibility(prev => ({
+      ...prev,
+      volumeForm: true
+    }));
+    console.log('Volume form should now be visible');
   };
 
   const handleVolumeFormClose = () => {
     setShowVolumeForm(false);
+    // Also hide the volume form component
+    setComponentVisibility(prev => ({
+      ...prev,
+      volumeForm: false
+    }));
   };
 
   const handleVolumeFormSave = (volumeData) => {
@@ -98,12 +123,18 @@ export default function App() {
           type: volumeData.geometryType,
           name: volumeData.volume,
           position: geometry.position,
+          visible: geometry.userData.visible !== false, // Include visibility state
           userData: geometry.userData
         }]);
       }
     }
     
     setShowVolumeForm(false);
+    // Also hide the volume form component
+    setComponentVisibility(prev => ({
+      ...prev,
+      volumeForm: false
+    }));
   };
 
   // Panel handlers
@@ -156,6 +187,7 @@ export default function App() {
           id: geometry.userData.id || Date.now(),
           type: geometry.userData.type,
           position: geometry.position,
+          visible: geometry.userData.visible !== false, // Include visibility state
           userData: geometry.userData
         };
         setExistingVolumes(prev => [...prev, volumeData]);
@@ -246,6 +278,111 @@ export default function App() {
     setShowGeometryPanel(false);
   };
 
+  const handleShowSensorPanel = () => {
+    setShowSensorPanel(true);
+    setComponentVisibility(prev => ({
+      ...prev,
+      sensorPanel: true
+    }));
+  };
+
+  const handleSensorPanelClose = () => {
+    setShowSensorPanel(false);
+    setComponentVisibility(prev => ({
+      ...prev,
+      sensorPanel: false
+    }));
+  };
+
+  const handleSensorSave = (sensorData) => {
+    if (Array.isArray(sensorData)) {
+      // Multiple sensors (from validation or deletion)
+      setExistingSensors(sensorData);
+    } else {
+      // Single sensor (new or updated)
+      setExistingSensors(prev => {
+        const existingIndex = prev.findIndex(s => s.id === sensorData.id);
+        if (existingIndex >= 0) {
+          // Update existing sensor
+          const updated = [...prev];
+          updated[existingIndex] = sensorData;
+          return updated;
+        } else {
+          // Add new sensor
+          return [...prev, sensorData];
+        }
+      });
+      
+      // Create sensor in 3D scene
+      if (window.createSensor) {
+        window.createSensor(sensorData);
+      }
+    }
+  };
+
+  const handleSensorValidate = (sensors) => {
+ // In a real app, this would trigger validation logic
+    setExistingSensors(sensors);
+  };
+
+  const handleShowCompoundVolume = () => {
+    setShowCompoundVolume(true);
+    setComponentVisibility(prev => ({
+      ...prev,
+      compoundVolume: true
+    }));
+  };
+
+  const handleCompoundVolumeClose = () => {
+    setShowCompoundVolume(false);
+    setComponentVisibility(prev => ({
+      ...prev,
+      compoundVolume: false
+    }));
+  };
+
+  const handleCompoundVolumeImport = (importData) => {
+ // In a real app, this would:
+    // 1. Load the compound object from file system
+    // 2. Apply conflict resolution (rename conflicting entities)
+    // 3. Create geometries in the 3D scene with the specified position/rotation/scale
+    // 4. Add volumes, compositions, and spectra to the scene
+    
+    // For now, we'll simulate the import by creating mock volumes
+    const mockVolumes = importData.compoundObject.volumes ? 
+      Array.from({ length: importData.compoundObject.volumes }, (_, index) => ({
+        id: Date.now() + index,
+        type: 'cube', // Default geometry type
+        name: `Imported_${importData.compoundObject.name}_${index + 1}`,
+        position: {
+          x: importData.position.x + (index * 2),
+          y: importData.position.y,
+          z: importData.position.z
+        },
+        userData: {
+          type: 'cube',
+          id: Date.now() + index,
+          originalColor: 0x888888,
+          importedFrom: importData.compoundObject.name,
+          importPosition: importData.position,
+          importRotation: importData.position.rotation,
+          importScale: importData.position.scale
+        }
+      })) : [];
+
+    // Add imported volumes to existing volumes
+    setExistingVolumes(prev => [...prev, ...mockVolumes]);
+    
+    // Create geometries in 3D scene
+    mockVolumes.forEach(volume => {
+      if (window.createGeometryFromData) {
+        window.createGeometryFromData(volume);
+      }
+    });
+    
+    console.log(`Successfully imported ${mockVolumes.length} volumes from ${importData.compoundObject.name}`);
+  };
+
   const handleToggleComponentVisibility = (componentKey, isVisible) => {
     setComponentVisibility(prev => ({
       ...prev,
@@ -298,6 +435,7 @@ export default function App() {
         },
         userData: volume.userData
       })),
+      sensors: existingSensors,
       settings: {
         componentVisibility,
         selectedTool,
@@ -311,9 +449,7 @@ export default function App() {
 
   // Function to load scene data
   const loadSceneData = (sceneData) => {
-    console.log('Loading scene data:', sceneData);
-    
-    try {
+ try {
       // Load scene settings
       if (sceneData.scene) {
         // Load camera settings
@@ -360,6 +496,7 @@ export default function App() {
                 type: obj.type,
                 name: obj.name,
                 position: obj.position,
+                visible: obj.visible !== false, // Include visibility state
                 userData: obj.userData
               }]);
             }
@@ -371,6 +508,18 @@ export default function App() {
         setHasSelectedObject(false);
       }
       
+      // Load sensors
+      if (sceneData.sensors && Array.isArray(sceneData.sensors)) {
+        setExistingSensors(sceneData.sensors);
+        
+        // Create sensors in 3D scene
+        sceneData.sensors.forEach(sensor => {
+          if (window.createSensor) {
+            window.createSensor(sensor);
+          }
+        });
+      }
+      
       // Load component visibility settings
       if (sceneData.settings && sceneData.settings.componentVisibility) {
         setComponentVisibility(sceneData.settings.componentVisibility);
@@ -380,9 +529,7 @@ export default function App() {
       if (sceneData.settings && sceneData.settings.selectedTool) {
         setSelectedTool(sceneData.settings.selectedTool);
       }
-      
-      console.log('Scene data loaded successfully');
-    } catch (error) {
+ } catch (error) {
       console.error('Error loading scene data:', error);
     }
   };
@@ -436,6 +583,24 @@ export default function App() {
           onSelectionChange={handleSelectionChange}
           onAxisChange={handleAxisChange}
           onViewModeChange={handleViewModeChange}
+          onGeometryDeleted={(geometryId) => {
+            // Remove the geometry from the existing volumes list
+            setExistingVolumes(prev => prev.filter(volume => volume.id !== geometryId));
+            // Update object states
+            setHasObjects(existingVolumes.length > 1);
+            if (selectedGeometry?.id === geometryId) {
+              setSelectedGeometry(null);
+              setHasSelectedObject(false);
+            }
+          }}
+          onGeometryVisibilityChanged={(geometryId, visible) => {
+            // Update visibility in the existing volumes list
+            setExistingVolumes(prev => prev.map(volume => 
+              volume.id === geometryId 
+                ? { ...volume, visible }
+                : volume
+            ));
+          }}
         />
       </div>
       
@@ -443,22 +608,110 @@ export default function App() {
       <div className="absolute inset-0 z-30 pointer-events-none">
         {/* Navigation Bar - Top */}
         <div className="absolute top-0 left-0 right-0 pointer-events-auto">
-          <Navigation 
-            onShowVolumeForm={handleShowVolumeForm}
-            onToggleHelp={() => setShowHelp(prev => !prev)}
-            onAxisChange={handleAxisChange}
-            onViewModeChange={handleViewModeChange}
-            onMaterialChange={handleMaterialChange}
-            onViewMenuAction={handleViewMenuAction}
-            onShowGeometryPanel={handleShowGeometryPanel}
-            onToggleComponentVisibility={handleToggleComponentVisibility}
-            sceneData={getSceneData()}
-          />
+                  <Navigation 
+          onShowVolumeForm={handleShowVolumeForm}
+          onToggleHelp={() => setShowHelp(prev => !prev)}
+          onAxisChange={handleAxisChange}
+          onViewModeChange={handleViewModeChange}
+          onMaterialChange={handleMaterialChange}
+          onViewMenuAction={handleViewMenuAction}
+          onShowGeometryPanel={handleShowGeometryPanel}
+          onShowSensorPanel={handleShowSensorPanel}
+          onShowCompoundVolume={handleShowCompoundVolume}
+          onToggleComponentVisibility={handleToggleComponentVisibility}
+          sceneData={getSceneData()}
+        />
         </div>
         
         {/* Geometry Selector - Draggable */}
         {componentVisibility.geometrySelector && (
           <GeometrySelector onGeometrySelect={handleGeometrySelect} />
+        )}
+
+        {/* Directory - Draggable */}
+        {componentVisibility.directory && (
+          <Directory
+            isVisible={true}
+            onClose={() => {
+              setComponentVisibility(prev => ({ ...prev, directory: false }));
+            }}
+            existingVolumes={existingVolumes}
+            existingSensors={existingSensors}
+            existingCompositions={existingCompositions}
+            existingSpectra={existingSpectra}
+            onRenameObject={async (id, newName) => {
+              try {
+                // Update the object name in the 3D scene
+                if (window.updateGeometryName) {
+                  window.updateGeometryName(id, newName);
+                }
+                
+                // Update the object name in the volumes list
+                setExistingVolumes(prev => prev.map(volume => 
+                  volume.id === id 
+                    ? { ...volume, userData: { ...volume.userData, volumeName: newName } }
+                    : volume
+                ));
+                
+                // Update the volume name in the backend if we have a current project
+                if (currentProject && apiService) {
+                  try {
+                    await apiService.updateVolumeName(currentProject.id, id, newName);
+                    console.log(`Volume name updated in backend: ${newName}`);
+                  } catch (error) {
+                    console.error('Failed to update volume name in backend:', error);
+                    // Don't show error to user as the frontend update already succeeded
+                  }
+                }
+              } catch (error) {
+                console.error('Error updating volume name:', error);
+              }
+            }}
+            onDeleteObject={(id) => {
+              // Remove from 3D scene first
+              if (window.removeGeometry) {
+                const success = window.removeGeometry(id);
+                if (success) {
+                  // The onGeometryDeleted callback will handle updating existingVolumes
+                  console.log(`Geometry ${id} deleted from 3D scene`);
+                } else {
+                  console.warn(`Failed to delete geometry ${id} from 3D scene`);
+                  // Fallback: remove from volumes list manually
+                  setExistingVolumes(prev => prev.filter(volume => volume.id !== id));
+                }
+              } else {
+                // Fallback: remove from volumes list manually
+                setExistingVolumes(prev => prev.filter(volume => volume.id !== id));
+              }
+            }}
+            onSelectObject={(object) => {
+              // Select the object in the 3D scene
+              if (window.selectGeometry) {
+                window.selectGeometry(object.data);
+              }
+              // Update the selected geometry state
+              setSelectedGeometry({
+                type: object.objectType || object.type,
+                id: object.id,
+                position: object.data.position,
+                userData: object.data.userData
+              });
+              setHasSelectedObject(true);
+            }}
+            onToggleVisibility={(id, visible) => {
+              // Toggle object visibility in 3D scene
+              if (window.toggleGeometryVisibility) {
+                const success = window.toggleGeometryVisibility(id, visible);
+                if (success) {
+                  // The onGeometryVisibilityChanged callback will handle updating existingVolumes
+                  console.log(`Geometry ${id} visibility set to ${visible}`);
+                } else {
+                  console.warn(`Failed to toggle geometry ${id} visibility`);
+                }
+              }
+            }}
+            selectedObjectId={selectedGeometry?.id}
+          />
         )}
 
         {/* Rotation Sliders - Draggable */}
@@ -467,9 +720,9 @@ export default function App() {
         )}
 
         {/* Volume Form - Draggable */}
-        {componentVisibility.volumeForm && (
+        {componentVisibility.volumeForm && showVolumeForm && (
           <VolumeForm
-            isVisible={showVolumeForm}
+            isVisible={true}
             onClose={handleVolumeFormClose}
             onSave={handleVolumeFormSave}
             onShowCompositionPanel={() => setShowCompositionPanel(true)}
@@ -517,6 +770,27 @@ export default function App() {
           onClose={handleGeometryPanelClose}
           selectedGeometry={selectedGeometry}
           existingVolumes={existingVolumes}
+        />
+
+        {/* Sensor Panel - Draggable */}
+        <SensorPanel
+          isVisible={showSensorPanel}
+          onClose={handleSensorPanelClose}
+          onValidate={handleSensorValidate}
+          onSaveAs={handleSensorSave}
+          existingSensors={existingSensors}
+          existingCompositions={existingCompositions}
+        />
+
+        {/* Compound Volume Panel - Draggable */}
+        <CompoundVolume
+          isVisible={showCompoundVolume}
+          onClose={handleCompoundVolumeClose}
+          onImport={handleCompoundVolumeImport}
+          onCancel={handleCompoundVolumeClose}
+          existingVolumes={existingVolumes}
+          existingCompositions={existingCompositions}
+          existingSpectra={existingSpectra}
         />
 
         {/* Contextual Help - Draggable floating component */}

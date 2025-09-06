@@ -4,6 +4,7 @@ import Login from '../Profile/Login';
 import Signup from '../Profile/Signup';
 import Profile from '../Profile/Profile';
 import { useAuth } from '../../contexts/AuthContext';
+import { exportMultipleObjectsToOBJ, downloadOBJ } from '../../utils/objExporter';
 
 export default function Navigation({ 
   onShowVolumeForm, 
@@ -13,6 +14,8 @@ export default function Navigation({
   onToggleHelp, 
   onViewMenuAction, 
   onShowGeometryPanel,
+  onShowSensorPanel,
+  onShowCompoundVolume,
   onSaveToComputer,
   onSaveToCloud,
   onLoadFromComputer,
@@ -33,7 +36,10 @@ export default function Navigation({
     helpOverlay: true,
     geometrySelector: true,
     volumeForm: false,
-    rotationSliders: true,
+    sensorPanel: false,
+    compoundVolume: false,
+    directory: true,
+    rotationSliders: false,
     debugPanel: false
   });
   
@@ -50,6 +56,7 @@ export default function Navigation({
       'Load from Cloud',
       'Create New Project',
       'Export (Image)',
+      'Export (OBJ)',
       'Print',
       'Quit Mercurad'
     ],
@@ -94,6 +101,9 @@ export default function Navigation({
       'Help Overlay',
       'Geometry Selector',
       'Volume Form',
+      'Sensor Panel',
+      'Compound Volume',
+      'Directory',
       'Rotation Sliders',
       'Debug Panel'
     ]
@@ -131,6 +141,9 @@ export default function Navigation({
       case 'Export (Image)':
         handleExportImage();
         break;
+      case 'Export (OBJ)':
+        handleExportOBJ();
+        break;
       case 'Print':
         handlePrint();
         break;
@@ -143,6 +156,16 @@ export default function Navigation({
       case 'Geometry':
         if (onShowGeometryPanel) {
           onShowGeometryPanel();
+        }
+        break;
+      case 'Sensor':
+        if (onShowSensorPanel) {
+          onShowSensorPanel();
+        }
+        break;
+      case 'Compound Volume':
+        if (onShowCompoundVolume) {
+          onShowCompoundVolume();
         }
         break;
       default:
@@ -177,6 +200,9 @@ export default function Navigation({
           'Help Overlay': 'helpOverlay',
           'Geometry Selector': 'geometrySelector',
           'Volume Form': 'volumeForm',
+          'Sensor Panel': 'sensorPanel',
+          'Compound Volume': 'compoundVolume',
+          'Directory': 'directory',
           'Rotation Sliders': 'rotationSliders',
           'Debug Panel': 'debugPanel'
         };
@@ -439,6 +465,29 @@ export default function Navigation({
     }
   };
 
+  const handleExportOBJ = () => {
+    try {
+      // Get all geometries from the 3D scene
+      const geometries = window.getAllGeometries ? window.getAllGeometries() : [];
+      
+      if (geometries.length === 0) {
+        alert('No objects to export. Please create some objects first.');
+        return;
+      }
+      
+      // Export all objects as a single OBJ file
+      const objContent = exportMultipleObjectsToOBJ(geometries, 'mercurad-scene.obj');
+      const filename = `mercurad-scene-${new Date().toISOString().split('T')[0]}.obj`;
+      
+      downloadOBJ(objContent, filename);
+      
+      console.log(`Exported ${geometries.length} objects to ${filename}`);
+    } catch (error) {
+      console.error('Error exporting OBJ:', error);
+      alert('Error exporting OBJ file. Please try again.');
+    }
+  };
+
   const handleLoadFromCloud = async () => {
     if (!user) {
       setShowLogin(true);
@@ -564,9 +613,182 @@ export default function Navigation({
   };
 
   const handlePrint = () => {
-    // This would print the current scene
-    console.log('Printing...');
-    window.print();
+    console.log('Printing scene...');
+    
+    // Get the Three.js canvas element
+    const canvas = document.querySelector('canvas');
+    if (!canvas) {
+      console.error('No 3D canvas found to print');
+      alert('No 3D scene found to print');
+      return;
+    }
+    
+    // Get current scene data for context
+    const sceneInfo = sceneData ? {
+      name: sceneData.metadata?.name || 'Untitled Scene',
+      description: sceneData.metadata?.description || '3D Radiation Simulation Scene',
+      objects: sceneData.objects?.length || 0,
+      sensors: sceneData.sensors?.length || 0,
+      timestamp: new Date().toLocaleString()
+    } : {
+      name: 'Current Scene',
+      description: '3D Radiation Simulation Scene',
+      objects: 0,
+      sensors: 0,
+      timestamp: new Date().toLocaleString()
+    };
+    
+    // First, capture the canvas as an image
+    try {
+      // Convert canvas to data URL with high quality
+      const dataURL = canvas.toDataURL('image/png', 1.0);
+      
+      // Create a new window for printing
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      
+      if (!printWindow) {
+        alert('Please allow popups to print the scene');
+        return;
+      }
+      
+      // Create print content with the image embedded
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Mercurad Scene Print - ${sceneInfo.name}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 20px;
+              background: white;
+              color: black;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+              margin-bottom: 20px;
+            }
+            .scene-info {
+              background: #f5f5f5;
+              padding: 15px;
+              border-radius: 5px;
+              margin-bottom: 20px;
+            }
+            .scene-info h3 {
+              margin-top: 0;
+              color: #333;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+              margin-top: 10px;
+            }
+            .info-item {
+              display: flex;
+              justify-content: space-between;
+              padding: 5px 0;
+              border-bottom: 1px solid #ddd;
+            }
+            .info-label {
+              font-weight: bold;
+            }
+            .scene-canvas {
+              text-align: center;
+              margin: 20px 0;
+              border: 1px solid #ccc;
+              padding: 10px;
+              background: white;
+            }
+            .scene-canvas img {
+              max-width: 100%;
+              height: auto;
+              border: 1px solid #999;
+              display: block;
+              margin: 0 auto;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 12px;
+              color: #666;
+              border-top: 1px solid #ddd;
+              padding-top: 10px;
+            }
+            @media print {
+              body { margin: 0; }
+              .scene-canvas { page-break-inside: avoid; }
+              .scene-canvas img { max-width: 100%; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Mercurad 3D Scene</h1>
+            <h2>${sceneInfo.name}</h2>
+          </div>
+          
+          <div class="scene-info">
+            <h3>Scene Information</h3>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">Scene Name:</span>
+                <span>${sceneInfo.name}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Description:</span>
+                <span>${sceneInfo.description}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Objects:</span>
+                <span>${sceneInfo.objects}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Sensors:</span>
+                <span>${sceneInfo.sensors}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Generated:</span>
+                <span>${sceneInfo.timestamp}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Software:</span>
+                <span>Mercurad v2.0</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="scene-canvas">
+            <h3>3D Scene View</h3>
+            <img src="${dataURL}" alt="3D Scene View" />
+          </div>
+          
+          <div class="footer">
+            <p>Generated by Mercurad - 3D Radiation Simulation Software</p>
+            <p>For technical support, contact your system administrator</p>
+          </div>
+        </body>
+        </html>
+      `);
+      
+      // Close the document and trigger print
+      printWindow.document.close();
+      
+      // Wait a moment for the image to load, then print
+      setTimeout(() => {
+        printWindow.print();
+        // Keep the window open for a moment so user can see the preview
+        setTimeout(() => {
+          printWindow.close();
+        }, 2000);
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error capturing canvas:', error);
+      alert('Error capturing the 3D scene. Please try again.');
+    }
   };
 
   const handleQuit = () => {
@@ -593,6 +815,7 @@ export default function Navigation({
         'Help Overlay': 'helpOverlay',
         'Geometry Selector': 'geometrySelector',
         'Volume Form': 'volumeForm',
+        'Directory': 'directory',
         'Rotation Sliders': 'rotationSliders',
         'Debug Panel': 'debugPanel'
       };
@@ -653,9 +876,11 @@ export default function Navigation({
   return (
     <nav className="bg-neutral-700 w-full pointer-events-auto relative z-40">
       <div className="flex justify-between items-center">
-        {/* Left side - Menu items */}
-        <ul className="flex text-[13px]">
-          {Object.keys(menuStructure).map((menuName) => (
+        {/* Left side - Logo and Menu items */}
+        <div className="flex items-center">
+          {/* Menu items */}
+          <ul className="flex text-[13px]">
+            {Object.keys(menuStructure).map((menuName) => (
             <li key={menuName} className="relative">
               <button
                 onClick={() => handleMenuClick(menuName)}
@@ -674,6 +899,7 @@ export default function Navigation({
             </li>
           ))}
         </ul>
+        </div>
 
         {/* Right side - Axis, View Mode controls, and Authentication */}
         <div className="flex items-center space-x-1 sm:space-x-2 mr-2 sm:mr-4">

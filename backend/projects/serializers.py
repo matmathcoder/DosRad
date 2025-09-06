@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from .models import (
     Project, SceneConfiguration, Geometry, Composition, 
-    Spectrum, Volume, SceneHistory, CSGOperation
+    Spectrum, Volume, SceneHistory, CSGOperation, Sensor,
+    CompoundObject, CompoundObjectGeometry, CompoundObjectComposition,
+    CompoundObjectSpectrum, CompoundObjectSensor, CompoundObjectImport
 )
 
 
@@ -131,6 +133,16 @@ class SceneHistorySerializer(serializers.ModelSerializer):
         read_only_fields = ['project', 'timestamp']
 
 
+class SensorSerializer(serializers.ModelSerializer):
+    """Serializer for sensors"""
+    selected_composition = CompositionSerializer(read_only=True)
+    
+    class Meta:
+        model = Sensor
+        fields = '__all__'
+        read_only_fields = ['project', 'created_at', 'updated_at']
+
+
 class CSGOperationSerializer(serializers.ModelSerializer):
     """Serializer for CSG operations"""
     result_object = GeometrySerializer(read_only=True)
@@ -139,6 +151,172 @@ class CSGOperationSerializer(serializers.ModelSerializer):
         model = CSGOperation
         fields = '__all__'
         read_only_fields = ['project', 'created_at']
+
+
+class CompoundObjectGeometrySerializer(serializers.ModelSerializer):
+    """Serializer for compound object geometries"""
+    class Meta:
+        model = CompoundObjectGeometry
+        fields = '__all__'
+        read_only_fields = ['compound_object', 'created_at']
+
+
+class CompoundObjectCompositionSerializer(serializers.ModelSerializer):
+    """Serializer for compound object compositions"""
+    class Meta:
+        model = CompoundObjectComposition
+        fields = '__all__'
+        read_only_fields = ['compound_object', 'created_at']
+
+
+class CompoundObjectSpectrumSerializer(serializers.ModelSerializer):
+    """Serializer for compound object spectra"""
+    class Meta:
+        model = CompoundObjectSpectrum
+        fields = '__all__'
+        read_only_fields = ['compound_object', 'created_at']
+
+
+class CompoundObjectSensorSerializer(serializers.ModelSerializer):
+    """Serializer for compound object sensors"""
+    class Meta:
+        model = CompoundObjectSensor
+        fields = '__all__'
+        read_only_fields = ['compound_object', 'created_at']
+
+
+class CompoundObjectSerializer(serializers.ModelSerializer):
+    """Serializer for compound objects"""
+    geometries = CompoundObjectGeometrySerializer(many=True, read_only=True)
+    compositions = CompoundObjectCompositionSerializer(many=True, read_only=True)
+    spectra = CompoundObjectSpectrumSerializer(many=True, read_only=True)
+    sensors = CompoundObjectSensorSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = CompoundObject
+        fields = '__all__'
+        read_only_fields = ['project', 'created_at', 'last_modified']
+
+
+class CompoundObjectListSerializer(serializers.ModelSerializer):
+    """Simplified serializer for compound object lists"""
+    class Meta:
+        model = CompoundObject
+        fields = [
+            'id', 'name', 'description', 'file_path', 'file_size',
+            'version', 'created_by', 'tags', 'volumes_count',
+            'compositions_count', 'spectra_count', 'sensors_count',
+            'is_template', 'is_public', 'category', 'last_modified', 'created_at'
+        ]
+        read_only_fields = ['project', 'created_at', 'last_modified']
+
+
+class CompoundObjectImportSerializer(serializers.ModelSerializer):
+    """Serializer for compound object imports"""
+    compound_object = CompoundObjectListSerializer(read_only=True)
+    
+    class Meta:
+        model = CompoundObjectImport
+        fields = '__all__'
+        read_only_fields = ['project', 'compound_object', 'created_at']
+
+
+class CompoundObjectCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating compound objects with nested data"""
+    geometries = CompoundObjectGeometrySerializer(many=True, required=False)
+    compositions = CompoundObjectCompositionSerializer(many=True, required=False)
+    spectra = CompoundObjectSpectrumSerializer(many=True, required=False)
+    sensors = CompoundObjectSensorSerializer(many=True, required=False)
+    
+    class Meta:
+        model = CompoundObject
+        fields = '__all__'
+        read_only_fields = ['project', 'created_at', 'last_modified']
+    
+    def create(self, validated_data):
+        geometries_data = validated_data.pop('geometries', [])
+        compositions_data = validated_data.pop('compositions', [])
+        spectra_data = validated_data.pop('spectra', [])
+        sensors_data = validated_data.pop('sensors', [])
+        
+        # Create compound object
+        compound_object = CompoundObject.objects.create(**validated_data)
+        
+        # Create geometries
+        for geom_data in geometries_data:
+            CompoundObjectGeometry.objects.create(
+                compound_object=compound_object,
+                **geom_data
+            )
+        
+        # Create compositions
+        for comp_data in compositions_data:
+            CompoundObjectComposition.objects.create(
+                compound_object=compound_object,
+                **comp_data
+            )
+        
+        # Create spectra
+        for spec_data in spectra_data:
+            CompoundObjectSpectrum.objects.create(
+                compound_object=compound_object,
+                **spec_data
+            )
+        
+        # Create sensors
+        for sensor_data in sensors_data:
+            CompoundObjectSensor.objects.create(
+                compound_object=compound_object,
+                **sensor_data
+            )
+        
+        return compound_object
+
+
+class CompoundObjectImportRequestSerializer(serializers.Serializer):
+    """Serializer for compound object import requests"""
+    compound_object_id = serializers.IntegerField()
+    position = serializers.JSONField(default=dict)
+    rotation = serializers.JSONField(default=dict)
+    scale = serializers.JSONField(default=dict)
+    name_conflicts = serializers.JSONField(default=dict)
+    
+    def validate_position(self, value):
+        """Validate position data"""
+        required_keys = ['x', 'y', 'z']
+        if not all(key in value for key in required_keys):
+            raise serializers.ValidationError("Position must contain x, y, z coordinates")
+        return value
+    
+    def validate_rotation(self, value):
+        """Validate rotation data"""
+        required_keys = ['x', 'y', 'z']
+        if not all(key in value for key in required_keys):
+            raise serializers.ValidationError("Rotation must contain x, y, z angles")
+        return value
+    
+    def validate_scale(self, value):
+        """Validate scale data"""
+        required_keys = ['x', 'y', 'z']
+        if not all(key in value for key in required_keys):
+            raise serializers.ValidationError("Scale must contain x, y, z factors")
+        return value
+
+
+class CompoundObjectExportSerializer(serializers.Serializer):
+    """Serializer for exporting compound objects"""
+    name = serializers.CharField(max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True)
+    category = serializers.CharField(max_length=100, default='General')
+    tags = serializers.ListField(child=serializers.CharField(), required=False, default=list)
+    is_template = serializers.BooleanField(default=False)
+    is_public = serializers.BooleanField(default=False)
+    
+    # Objects to include in compound
+    geometry_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
+    composition_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
+    spectrum_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
+    sensor_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
 
 
 class CompleteSceneSerializer(serializers.Serializer):

@@ -182,7 +182,7 @@ export default class ViewManager {
         
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const material = new THREE.LineBasicMaterial({
-          color: 0x00ff00,
+          color: 0x737373, // Handler color
           transparent: true,
           opacity: 0.8
         });

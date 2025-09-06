@@ -39,6 +39,12 @@ export default class SceneManager {
     mainLight.castShadow = true;
     mainLight.shadow.mapSize.width = 2048;
     mainLight.shadow.mapSize.height = 2048;
+    mainLight.shadow.camera.near = 0.1;
+    mainLight.shadow.camera.far = 50;
+    mainLight.shadow.camera.left = -20;
+    mainLight.shadow.camera.right = 20;
+    mainLight.shadow.camera.top = 20;
+    mainLight.shadow.camera.bottom = -20;
     scene.add(mainLight);
 
     // Secondary directional light from opposite side for fill lighting
@@ -62,6 +68,23 @@ export default class SceneManager {
     // Hemisphere light for natural sky/ground lighting
     const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x8b4513, 0.8);
     scene.add(hemisphereLight);
+  }
+  
+  // Method to force shadow map updates
+  invalidateAllShadowMaps() {
+    if (this.refs.sceneRef.current) {
+      this.refs.sceneRef.current.traverse((object) => {
+        if (object.isDirectionalLight && object.castShadow) {
+          object.shadow.needsUpdate = true;
+        }
+        if (object.isPointLight && object.castShadow) {
+          object.shadow.needsUpdate = true;
+        }
+        if (object.isSpotLight && object.castShadow) {
+          object.shadow.needsUpdate = true;
+        }
+      });
+    }
   }
   
   setupScene() {

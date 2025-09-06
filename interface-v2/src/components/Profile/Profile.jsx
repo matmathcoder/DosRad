@@ -24,14 +24,12 @@ export default function Profile({ user, onLogout, onClose }) {
 
   // Handle project loading
   const handleLoadProject = (projectId) => {
-    console.log('Loading project:', projectId);
-    // TODO: Implement project loading logic
+ // TODO: Implement project loading logic
   };
 
   // Handle profile editing
   const handleEditProfile = () => {
-    console.log('Edit profile');
-    // TODO: Implement profile editing logic
+ // TODO: Implement profile editing logic
   };
 
   const handleLogout = async () => {

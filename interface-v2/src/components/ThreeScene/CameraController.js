@@ -45,12 +45,6 @@ export default class CameraController {
     // Set base distance for zoom calculations
     const initialDistance = this.pCameraRef.position.distanceTo(new THREE.Vector3(0, 0, 0));
     this.baseDistance = initialDistance;
-    
-    console.log('Cameras initialized:', {
-      perspective: this.pCameraRef,
-      orthographic: this.oCameraRef,
-      active: this.activeCameraRef
-    });
   }
   
   setupControls() {
@@ -136,7 +130,35 @@ export default class CameraController {
   }
   
   zoomToFit(objects) {
-    if (!objects || objects.length === 0) return;
+    const cam = this.activeCameraRef;
+    const renderer = this.refs.rendererRef.current;
+    
+    // If no objects, set a default view
+    if (!objects || objects.length === 0) {
+      const center = new THREE.Vector3(0, 0, 0);
+      const defaultDistance = 5; // Reduced from 10
+      
+      if (cam.isPerspectiveCamera) {
+        const newPos = new THREE.Vector3(defaultDistance, defaultDistance, defaultDistance);
+        this.animateCameraTo(newPos, center);
+      } else if (cam.isOrthographicCamera) {
+        const sizeVec = new THREE.Vector2();
+        renderer.getSize(sizeVec);
+        const aspect = sizeVec.x / sizeVec.y;
+        const halfHeight = 3; // Reduced from 5
+        const halfWidth = halfHeight * aspect;
+        
+        cam.left = -halfWidth;
+        cam.right = halfWidth;
+        cam.top = halfHeight;
+        cam.bottom = -halfHeight;
+        cam.updateProjectionMatrix();
+        
+        const newPos = new THREE.Vector3(defaultDistance, defaultDistance, defaultDistance);
+        this.animateCameraTo(newPos, center);
+      }
+      return;
+    }
 
     const box = new THREE.Box3();
     objects.forEach(obj => box.expandByObject(obj));
@@ -145,8 +167,6 @@ export default class CameraController {
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
 
-    const cam = this.activeCameraRef;
-    const renderer = this.refs.rendererRef.current;
     const dir = new THREE.Vector3();
     cam.getWorldDirection(dir); // points from camera toward scene
 
@@ -154,21 +174,32 @@ export default class CameraController {
       const fov = cam.fov * (Math.PI / 180);
       let distance = maxDim / (2 * Math.tan(fov / 2));
       distance *= 1.5; // padding
+      
+      // Clamp distance to reasonable bounds
+      distance = Math.max(1, Math.min(distance, 100));
+      
       const newPos = center.clone().addScaledVector(dir, -distance);
       this.animateCameraTo(newPos, center);
     } else if (cam.isOrthographicCamera) {
       const sizeVec = new THREE.Vector2();
       renderer.getSize(sizeVec);
       const aspect = sizeVec.x / sizeVec.y;
-      const halfHeight = (size.y / 2) * 1.2; // padding
-      const halfWidth = Math.max(halfHeight * aspect, (size.x / 2) * 1.2);
+      let halfHeight = (size.y / 2) * 1.2; // padding
+      let halfWidth = Math.max(halfHeight * aspect, (size.x / 2) * 1.2);
+      
+      // Clamp orthographic bounds to reasonable values
+      halfHeight = Math.max(1, Math.min(halfHeight, 20));
+      halfWidth = Math.max(1, Math.min(halfWidth, 20));
+      
       cam.left = -halfWidth;
       cam.right = halfWidth;
       cam.top = halfHeight;
       cam.bottom = -halfHeight;
       cam.updateProjectionMatrix();
+      
       const dist = cam.position.distanceTo(center);
-      const newPos = center.clone().addScaledVector(dir, -Math.max(dist, 0.001));
+      const clampedDist = Math.max(1, Math.min(dist, 50));
+      const newPos = center.clone().addScaledVector(dir, -clampedDist);
       this.animateCameraTo(newPos, center);
     }
   }

@@ -36,19 +36,19 @@ export default class GeometryManager {
     switch (geometryType) {
       case 'cube':
         geometry = new THREE.BoxGeometry(1, 1, 1);
-        material = new THREE.MeshStandardMaterial({ color: 0x525252 });
+        material = new THREE.MeshStandardMaterial({ color: 0x404040 });
         break;
       case 'sphere':
         geometry = new THREE.SphereGeometry(0.5, 32, 32);
-        material = new THREE.MeshStandardMaterial({ color: 0x4a90e2 });
+        material = new THREE.MeshStandardMaterial({ color: 0x404040 });
         break;
       case 'cylinder':
         geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32);
-        material = new THREE.MeshStandardMaterial({ color: 0x7ed321 });
+        material = new THREE.MeshStandardMaterial({ color: 0x404040 });
         break;
       case 'cone':
         geometry = new THREE.ConeGeometry(0.5, 1, 32);
-        material = new THREE.MeshStandardMaterial({ color: 0xf5a623 });
+        material = new THREE.MeshStandardMaterial({ color: 0x404040 });
         break;
       default:
         return null;
@@ -61,7 +61,8 @@ export default class GeometryManager {
     mesh.userData = { 
       type: geometryType, 
       id: Date.now(),
-      originalColor: material.color.getHex()
+      originalColor: material.color.getHex(),
+      visible: true
     };
     
     // Apply current view mode to new object
@@ -82,6 +83,77 @@ export default class GeometryManager {
     }
     
     return mesh;
+  }
+
+  createSensor(sensorData) {
+    if (!this.refs.sceneRef.current) return null;
+    
+    // Create a small sphere to represent the sensor
+    const geometry = new THREE.SphereGeometry(0.1, 16, 16);
+    const material = new THREE.MeshStandardMaterial({ 
+      color: 0xff0000,
+      emissive: 0x330000,
+      transparent: true,
+      opacity: 0.8
+    });
+    
+    const sensor = new THREE.Mesh(geometry, material);
+    
+    // Set position from sensor data
+    sensor.position.set(
+      sensorData.coordinates.x,
+      sensorData.coordinates.y,
+      sensorData.coordinates.z
+    );
+    
+    // Add sensor-specific properties
+    sensor.userData = {
+      type: 'sensor',
+      id: sensorData.id || Date.now(),
+      name: sensorData.name,
+      coordinates: sensorData.coordinates,
+      buildupType: sensorData.buildupType,
+      selectedComposition: sensorData.selectedComposition,
+      equiImportance: sensorData.equiImportance,
+      responseFunction: sensorData.responseFunction,
+      originalColor: material.color.getHex()
+    };
+    
+    // Add to scene
+    this.refs.sceneGroupRef.current.add(sensor);
+    this.refs.geometriesRef.current.push(sensor);
+    
+    // Add a label for the sensor
+    this.addSensorLabel(sensor, sensorData.name);
+    
+    return sensor;
+  }
+
+  addSensorLabel(sensor, name) {
+    // Create a simple text label for the sensor
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 256;
+    canvas.height = 64;
+    
+    context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    context.fillStyle = 'white';
+    context.font = '24px Arial';
+    context.textAlign = 'center';
+    context.fillText(name, canvas.width / 2, canvas.height / 2 + 8);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    
+    sprite.position.set(0, 0.2, 0);
+    sprite.scale.set(0.5, 0.125, 1);
+    sensor.add(sprite);
+    
+    // Store reference to sprite for later removal
+    sensor.userData.labelSprite = sprite;
   }
   
   createGeometryFromData(objData) {
@@ -105,7 +177,7 @@ export default class GeometryManager {
           boxParams.height || 1,
           boxParams.depth || 1
         );
-        material = new THREE.MeshStandardMaterial({ color: 0x525252 });
+        material = new THREE.MeshStandardMaterial({ color: 0x404040 });
         break;
       case 'sphere':
         const sphereParams = objData.geometry?.parameters || {};
@@ -114,7 +186,7 @@ export default class GeometryManager {
           sphereParams.widthSegments || 32,
           sphereParams.heightSegments || 32
         );
-        material = new THREE.MeshStandardMaterial({ color: 0x4a90e2 });
+        material = new THREE.MeshStandardMaterial({ color: 0x404040 });
         break;
       case 'cylinder':
         const cylinderParams = objData.geometry?.parameters || {};
@@ -124,7 +196,7 @@ export default class GeometryManager {
           cylinderParams.height || 1,
           cylinderParams.radialSegments || 32
         );
-        material = new THREE.MeshStandardMaterial({ color: 0x7ed321 });
+        material = new THREE.MeshStandardMaterial({ color: 0x404040 });
         break;
       case 'cone':
         const coneParams = objData.geometry?.parameters || {};
@@ -133,7 +205,7 @@ export default class GeometryManager {
           coneParams.height || 1,
           coneParams.radialSegments || 32
         );
-        material = new THREE.MeshStandardMaterial({ color: 0xf5a623 });
+        material = new THREE.MeshStandardMaterial({ color: 0x404040 });
         break;
       default:
         console.warn(`Unknown geometry type: ${geometryType}`);
@@ -175,6 +247,7 @@ export default class GeometryManager {
       gammaSelectionMode: objData.volume?.gammaSelectionMode || null,
       spectrum: objData.volume?.spectrum || null,
       geometryParameters: objData.geometry?.parameters || {},
+      visible: objData.visible !== false, // Use loaded visibility or default to true
       ...objData.userData // Include any additional userData
     };
     
@@ -267,14 +340,14 @@ export default class GeometryManager {
     switch (materialMode) {
       case 'wireframe':
         return new THREE.MeshBasicMaterial({ 
-          color: 0x00ff00, 
+          color: 0x404040, 
           wireframe: true,
           transparent: true,
           opacity: 0.8
         });
       case 'transparent':
         return new THREE.MeshStandardMaterial({ 
-          color: 0x00ff00, 
+          color: 0x404040, 
           transparent: true, 
           opacity: 0.5,
           roughness: 0.3,
@@ -282,12 +355,12 @@ export default class GeometryManager {
         });
       case 'points':
         return new THREE.PointsMaterial({ 
-          color: 0x00ff00, 
+          color: 0x404040, 
           size: 0.05 
         });
       default: // solid
         return new THREE.MeshStandardMaterial({ 
-          color: 0x00ff00,
+          color: 0x404040,
           roughness: 0.3,
           metalness: 0.1
         });
@@ -351,7 +424,7 @@ export default class GeometryManager {
     const points = [center, mesh.position.clone()];
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const material = new THREE.LineBasicMaterial({
-      color: 0x00ff00,
+      color: 0x737373, // Handler color
       transparent: true,
       opacity: 0.8
     });
@@ -366,13 +439,102 @@ export default class GeometryManager {
   deleteGeometry(mesh) {
     const index = this.refs.geometriesRef.current.indexOf(mesh);
     if (index > -1) {
+      // Store the geometry ID before deletion for callback
+      const geometryId = mesh.userData?.id;
+      
       this.refs.geometriesRef.current.splice(index, 1);
       this.refs.sceneGroupRef.current.remove(mesh);
       if (mesh.geometry) mesh.geometry.dispose();
       if (mesh.material) mesh.material.dispose();
+      
+      // Invalidate shadow maps to prevent shadow persistence
+      this.invalidateShadowMaps();
+      
+      // Notify parent component about the deletion
+      if (this.callbacks?.onGeometryDeleted && geometryId) {
+        this.callbacks.onGeometryDeleted(geometryId);
+      }
+      
       return true;
     }
     return false;
+  }
+  
+  duplicateGeometry(mesh) {
+    if (!mesh || !this.refs.sceneRef.current) return null;
+    
+    // Save history state BEFORE duplicating
+    if (this.modules?.historyManager) {
+      this.modules.historyManager.saveToHistory();
+    }
+    
+    // Clone the geometry
+    const clonedGeometry = mesh.geometry.clone();
+    
+    // Clone the material
+    const clonedMaterial = mesh.material.clone();
+    
+    // Create new mesh with cloned geometry and material
+    const duplicatedMesh = new THREE.Mesh(clonedGeometry, clonedMaterial);
+    
+    // Copy position, rotation, and scale
+    duplicatedMesh.position.copy(mesh.position);
+    duplicatedMesh.rotation.copy(mesh.rotation);
+    duplicatedMesh.scale.copy(mesh.scale);
+    
+    // Offset the duplicated mesh slightly to avoid overlap
+    duplicatedMesh.position.x += 0.5;
+    duplicatedMesh.position.z += 0.5;
+    
+    // Copy shadow properties
+    duplicatedMesh.castShadow = mesh.castShadow;
+    duplicatedMesh.receiveShadow = mesh.receiveShadow;
+    
+    // Copy userData
+    duplicatedMesh.userData = {
+      ...mesh.userData,
+      id: Date.now(), // Generate new unique ID
+      originalColor: clonedMaterial.color.getHex(),
+      volumeName: `${mesh.userData.volumeName || 'Object'}_Copy`
+    };
+    
+    // Apply current view mode to duplicated object
+    this.applyViewMode(duplicatedMesh, this.state.viewMode);
+    this.applyMaterialMode(duplicatedMesh, this.state.materialMode);
+    
+    // Add to scene
+    this.refs.sceneGroupRef.current.add(duplicatedMesh);
+    this.refs.geometriesRef.current.push(duplicatedMesh);
+    
+    // Add solid angle line if enabled
+    if (this.state.showSolidAngleLines) {
+      this.addSolidAngleLine(duplicatedMesh);
+    }
+    
+    // Auto-save scene after duplicating geometry
+    if (this.modules?.persistenceManager) {
+      this.modules.persistenceManager.saveScene();
+    }
+    
+    return duplicatedMesh;
+  }
+  
+  // Method to invalidate shadow maps and force re-render
+  invalidateShadowMaps() {
+    if (this.refs.sceneRef.current) {
+      // Force shadow map update by marking all shadow-casting lights as needing update
+      this.refs.sceneRef.current.traverse((object) => {
+        if (object.isDirectionalLight && object.castShadow) {
+          object.shadow.needsUpdate = true;
+        }
+        if (object.isPointLight && object.castShadow) {
+          object.shadow.needsUpdate = true;
+        }
+        if (object.isSpotLight && object.castShadow) {
+          object.shadow.needsUpdate = true;
+        }
+      });
+    }
   }
   
   // CSG Operations
@@ -558,6 +720,9 @@ export default class GeometryManager {
     this.deleteGeometry(objectA);
     this.deleteGeometry(objectB);
     
+    // Invalidate shadow maps after CSG operation
+    this.invalidateShadowMaps();
+    
     // Auto-save scene after CSG operation
     if (this.modules?.persistenceManager) {
       this.modules.persistenceManager.saveScene();
@@ -668,6 +833,9 @@ export default class GeometryManager {
     if (index !== -1) {
       this.refs.geometriesRef.current[index] = reducedMesh;
     }
+    
+    // Invalidate shadow maps after volume reduction
+    this.invalidateShadowMaps();
     
     return reducedMesh;
   }
