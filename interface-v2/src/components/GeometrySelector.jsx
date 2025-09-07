@@ -1,9 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Eclipse, Cylinder, Cone, X, Maximize2, Minus, Move } from 'lucide-react';
+import { 
+  Box, Eclipse, Cylinder, Cone, X, Maximize2, Minus, Move, Settings,
+  Torus, LineSquiggle, Shapes, Circle, CircleSmall, Club, Diamond, Hexagon
+} from 'lucide-react';
 
 export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'left' }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [selectedGeometries, setSelectedGeometries] = useState(['cube', 'sphere', 'cylinder', 'cone']);
+  
+  // Floating settings panel state
+  const [settingsPosition, setSettingsPosition] = useState({ x: 0, y: 0 });
+  const [isDraggingSettings, setIsDraggingSettings] = useState(false);
+  const [settingsDragStart, setSettingsDragStart] = useState({ x: 0, y: 0 });
+  const settingsRef = useRef();
   
   // Dragging state - Initialize to original position (top left)
   const [position, setPosition] = useState({ 
@@ -14,16 +25,32 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const selectorRef = useRef();
 
-  const geometries = [
-    { name: 'Cube', icon: Box },
-    { name: 'Sphere', icon: Eclipse },
-    { name: 'Cylinder', icon: Cylinder },
-    { name: 'Cone', icon: Cone },
+  const allGeometries = [
+    { name: 'Cube', type: 'cube', icon: Box, category: 'basic' },
+    { name: 'Sphere', type: 'sphere', icon: Eclipse, category: 'basic' },
+    { name: 'Cylinder', type: 'cylinder', icon: Cylinder, category: 'basic' },
+    { name: 'Cone', type: 'cone', icon: Cone, category: 'basic' },
+    { name: 'Capsule', type: 'capsule', icon: CircleSmall, category: 'advanced' },
+    { name: 'Dodecahedron', type: 'dodecahedron', icon: Diamond, category: 'advanced' },
+    { name: 'Extrude', type: 'extrude', icon: Shapes, category: 'advanced' },
+    { name: 'Icosahedron', type: 'icosahedron', icon: Hexagon, category: 'advanced' },
+    { name: 'Lathe', type: 'lathe', icon: LineSquiggle, category: 'advanced' },
+    { name: 'Octahedron', type: 'octahedron', icon: Club, category: 'advanced' },
+    { name: 'Plane', type: 'plane', icon: Circle, category: 'advanced' },
+    { name: 'Ring', type: 'ring', icon: Circle, category: 'advanced' },
+    { name: 'Shape', type: 'shape', icon: Shapes, category: 'advanced' },
+    { name: 'Tetrahedron', type: 'tetrahedron', icon: Diamond, category: 'advanced' },
+    { name: 'Torus', type: 'torus', icon: Torus, category: 'advanced' },
+    { name: 'TorusKnot', type: 'torusknot', icon: Torus, category: 'advanced' },
+    { name: 'Tube', type: 'tube', icon: Cylinder, category: 'advanced' },
   ];
 
-  const handleGeometrySelect = (geometryName) => {
+  // Get currently selected geometries
+  const geometries = allGeometries.filter(geo => selectedGeometries.includes(geo.type));
+
+  const handleGeometrySelect = (geometryType) => {
     if (onGeometrySelect) {
-      onGeometrySelect(geometryName.toLowerCase());
+      onGeometrySelect(geometryType);
     }
   };
 
@@ -234,6 +261,34 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
     setIsMinimized(!isMinimized);
   };
 
+  const handleSettingsToggle = () => {
+    if (!showSettings) {
+      // Position the settings panel next to the geometry selector
+      const settingsX = position.x + (isMaximized ? 320 : 192) + 10; // w-48 = 192px
+      const settingsY = position.y;
+      setSettingsPosition({ x: settingsX, y: settingsY });
+    }
+    setShowSettings(!showSettings);
+  };
+
+  const handleGeometryToggle = (geometryType) => {
+    setSelectedGeometries(prev => {
+      if (prev.includes(geometryType)) {
+        // Don't allow removing all geometries
+        if (prev.length > 1) {
+          return prev.filter(type => type !== geometryType);
+        }
+        return prev;
+      } else {
+        // Don't allow more than 8 geometries for UI reasons
+        if (prev.length < 8) {
+          return [...prev, geometryType];
+        }
+        return prev;
+      }
+    });
+  };
+
   // Dragging functions
   const handleMouseDown = (e) => {
     if (e.target.closest('.drag-handle')) {
@@ -256,8 +311,9 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
     const newY = e.clientY - dragStart.y;
     
     // Basic boundary checking - keep within screen bounds
-    const componentWidth = isMaximized ? 320 : 160;
-    const componentHeight = isMinimized ? 32 : (isMaximized ? 320 : 160);
+    const componentWidth = isMaximized ? 320 : 192; // w-48 = 192px
+    const componentHeight = isMinimized ? 32 : (isMaximized ? 320 : 
+      geometryCount <= 4 ? 176 : geometryCount <= 6 ? 192 : 224); // h-44=176px, h-48=192px, h-56=224px
     const margin = 20;
     
     const boundedX = Math.max(margin, Math.min(newX, window.innerWidth - componentWidth - margin));
@@ -270,6 +326,42 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
     setIsDragging(false);
   };
 
+  // Settings panel dragging functions
+  const handleSettingsMouseDown = (e) => {
+    if (e.target.closest('.settings-drag-handle')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingSettings(true);
+      setSettingsDragStart({
+        x: e.clientX - settingsPosition.x,
+        y: e.clientY - settingsPosition.y
+      });
+    }
+  };
+
+  const handleSettingsMouseMove = (e) => {
+    if (!isDraggingSettings) return;
+    
+    e.preventDefault();
+    
+    const newX = e.clientX - settingsDragStart.x;
+    const newY = e.clientY - settingsDragStart.y;
+    
+    // Basic boundary checking - keep within screen bounds
+    const settingsWidth = 300;
+    const settingsHeight = 400;
+    const margin = 20;
+    
+    const boundedX = Math.max(margin, Math.min(newX, window.innerWidth - settingsWidth - margin));
+    const boundedY = Math.max(60, Math.min(newY, window.innerHeight - settingsHeight - margin));
+    
+    setSettingsPosition({ x: boundedX, y: boundedY });
+  };
+
+  const handleSettingsMouseUp = () => {
+    setIsDraggingSettings(false);
+  };
+
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
@@ -280,6 +372,17 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
       };
     }
   }, [isDragging]);
+
+  useEffect(() => {
+    if (isDraggingSettings) {
+      document.addEventListener('mousemove', handleSettingsMouseMove);
+      document.addEventListener('mouseup', handleSettingsMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleSettingsMouseMove);
+        document.removeEventListener('mouseup', handleSettingsMouseUp);
+      };
+    }
+  }, [isDraggingSettings]);
 
 
   // Expose reset position function to window
@@ -297,7 +400,7 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
   useEffect(() => {
     const getPositionNextToDirectory = (directoryPosition) => {
       const directoryWidth = 350; // Directory width
-      const geometryWidth = 160; // Geometry Selector width
+      const geometryWidth = 192; // Geometry Selector width (w-48 = 192px)
       const margin = 8; // Small gap between components
       
       const positions = {
@@ -326,12 +429,35 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
   }, [layoutPosition]);
 
 
+  // Calculate dynamic height based on number of geometries
+  const geometryCount = geometries.length;
+  const getDynamicHeight = () => {
+    if (isMinimized) return 'h-8';
+    if (isMaximized) return 'h-80';
+    
+    // Normal mode - adjust height based on geometry count
+    if (geometryCount <= 4) {
+      return 'h-44'; // 2x2 grid
+    } else if (geometryCount <= 6) {
+      return 'h-48'; // 3x2 grid
+    } else {
+      return 'h-56'; // 3x3 grid (for 7-8 geometries)
+    }
+  };
+
+  const getGridCols = () => {
+    if (geometryCount <= 4) return 'grid-cols-2';
+    if (geometryCount <= 6) return 'grid-cols-3';
+    return 'grid-cols-3';
+  };
+
   return (
+    <>
     <div 
       ref={selectorRef}
       className={`rounded-md bg-neutral-700 pointer-events-auto absolute ${
-        isMaximized ? 'w-80 h-80' : 'w-40'
-      } ${isMinimized ? 'h-8' : 'h-auto'}`}
+        isMaximized ? 'w-80' : 'w-48'
+      } ${getDynamicHeight()}`}
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
@@ -347,6 +473,15 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
           <span className="text-white text-xs font-medium">Geometry Selector</span>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={handleSettingsToggle}
+            className={`p-1 rounded text-white ${
+              showSettings ? 'bg-blue-600 hover:bg-blue-500' : 'hover:bg-neutral-600'
+            }`}
+            title="Geometry Settings"
+          >
+            <Settings size={12} />
+          </button>
           <button
             onClick={handleMinimize}
             className="p-1 hover:bg-neutral-600 rounded text-white"
@@ -373,21 +508,21 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
 
       {/* Content Area */}
       {!isMinimized && (
-        <div className={`grid grid-cols-2 grid-rows-2 p-2 ${
-          isMaximized ? 'h-72' : 'h-32'
+        <div className={`grid ${getGridCols()} p-2 ${
+          isMaximized ? 'h-72' : geometryCount <= 4 ? 'h-32' : geometryCount <= 6 ? 'h-40' : 'h-48'
         }`}>
-          {geometries.map(({ name, icon: Icon }) => (
+          {geometries.map(({ name, type, icon: Icon }) => (
             <div 
-              key={name}
+              key={type}
               draggable="true"
-              onClick={() => handleGeometrySelect(name)}
+              onClick={() => handleGeometrySelect(type)}
               onDragStart={(e) => handleDragStart(e, name)}
               onDragEnd={handleDragEnd}
               className="flex flex-col items-center justify-center rounded shadow text-white hover:bg-neutral-600 cursor-pointer p-2 select-none"
               title={`Click to add ${name} or drag to scene`}
             >
-              <Icon size={isMaximized ? 48 : 36} className="mb-1" />
-              <span className={`text-center ${isMaximized ? 'text-sm' : 'text-xs'}`}>
+              <Icon size={isMaximized ? 32 : geometryCount > 4 ? 20 : 24} className="mb-1" />
+              <span className={`text-center ${isMaximized ? 'text-xs' : geometryCount > 4 ? 'text-[10px]' : 'text-xs'}`}>
                 {name}
               </span>
             </div>
@@ -395,5 +530,74 @@ export default function GeometrySelector({ onGeometrySelect, layoutPosition = 'l
         </div>
       )}
     </div>
+
+    {/* Floating Settings Panel */}
+    {showSettings && (
+      <div
+        ref={settingsRef}
+        className="fixed bg-neutral-700 border border-neutral-600 rounded-md shadow-lg pointer-events-auto w-80 h-96"
+        style={{
+          left: `${settingsPosition.x}px`,
+          top: `${settingsPosition.y}px`,
+          cursor: isDraggingSettings ? 'grabbing' : 'default',
+          zIndex: 50
+        }}
+        onMouseDown={handleSettingsMouseDown}
+      >
+        {/* Settings Panel Title Bar */}
+        <div className="flex items-center justify-between bg-neutral-700 border-b border-neutral-600 rounded-t-md px-3 py-1 settings-drag-handle cursor-grab">
+          <div className="flex items-center space-x-2">
+            <Move size={12} className="text-neutral-400" />
+            <span className="text-white text-xs font-medium">Geometry Settings</span>
+          </div>
+          <button
+            onClick={() => setShowSettings(false)}
+            className="p-1 hover:bg-red-600 rounded text-white"
+            title="Close"
+          >
+            <X size={12} />
+          </button>
+        </div>
+
+        {/* Settings Panel Content */}
+        <div className="p-4 h-80 overflow-y-auto">
+          <div className="mb-4">
+            <h3 className="text-white text-sm font-medium mb-2">Available Geometries</h3>
+            <p className="text-neutral-400 text-xs mb-4">
+              Select up to 8 geometries to display in the selector
+            </p>
+          </div>
+          
+          <div className="space-y-3">
+            {allGeometries.map(({ name, type, icon: Icon, category }) => (
+              <label key={type} className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-neutral-600">
+                <input
+                  type="checkbox"
+                  checked={selectedGeometries.includes(type)}
+                  onChange={() => handleGeometryToggle(type)}
+                  className="w-4 h-4 accent-blue-600"
+                  disabled={
+                    (selectedGeometries.includes(type) && selectedGeometries.length === 1) ||
+                    (!selectedGeometries.includes(type) && selectedGeometries.length >= 8)
+                  }
+                />
+                <Icon size={20} className="text-white" />
+                <div className="flex-1">
+                  <span className="text-white text-sm">{name}</span>
+                  <span className="text-neutral-500 text-xs ml-2">({category})</span>
+                </div>
+              </label>
+            ))}
+          </div>
+          
+          <div className="mt-6 pt-4 border-t border-neutral-600">
+            <p className="text-neutral-400 text-xs">
+              Selected: {selectedGeometries.length}/8 geometries
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

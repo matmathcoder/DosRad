@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Eye, Grid3X3, Frame, HelpCircle, Circle, CircleDashed, CircleDotDashed, CircleDot, LogIn, UserPlus } from 'lucide-react';
+import { ChevronRight, Eye, Grid3X3, Frame, HelpCircle, Circle, CircleDashed, CircleDotDashed, CircleDot, LogIn, UserPlus, Laptop, Cloud, HardDriveUpload, CloudUpload, CirclePlus, Image, FileBox, Printer } from 'lucide-react';
 import Login from '../Profile/Login';
 import Signup from '../Profile/Signup';
 import Profile from '../Profile/Profile';
@@ -8,6 +8,12 @@ import { exportMultipleObjectsToOBJ, downloadOBJ } from '../../utils/objExporter
 import MeshPanel from '../Navigation/Edit/VolumeForm/MeshPanel';
 import ComputationPanel from '../Navigation/Scene/ComputationPanel';
 import GenerateScenePanel from '../Navigation/Scene/GenerateScenePanel';
+import CompositionsInspectorPanel from '../Navigation/Inspector/CompositionsInspectorPanel';
+import SourcesInspectorPanel from '../Navigation/Inspector/SourcesInspectorPanel';
+import SensorsInspectorPanel from '../Navigation/Inspector/SensorsInspectorPanel';
+import CompositionPanel from '../Navigation/Edit/VolumeForm/CompositionPanel';
+import SensorPanel from '../Navigation/Edit/Insert/SensorPanel';
+import CompoundVolume from '../Navigation/Edit/Insert/CompoundVolume';
 
 export default function Navigation({ 
   onShowVolumeForm, 
@@ -19,6 +25,7 @@ export default function Navigation({
   onShowGeometryPanel,
   onShowSensorPanel,
   onShowCompoundVolume,
+  onShowPhysicsPanel,
   onSaveToComputer,
   onSaveToCloud,
   onLoadFromComputer,
@@ -30,7 +37,18 @@ export default function Navigation({
   selectedVolume,
   onMeshValidate,
   onComputationComplete,
-  onSceneGenerated
+  onSceneGenerated,
+  // Inspector panel props
+  onShowCompositionsInspector,
+  onShowSourcesInspector,
+  onShowSensorsInspector,
+  compositions = [],
+  sources = [],
+  sensors = [],
+  // Creation panel props
+  onShowCompositionPanel,
+  existingCompositions = [],
+  existingSensors = []
 }) {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [activeSubDropdown, setActiveSubDropdown] = useState(null);
@@ -59,6 +77,16 @@ export default function Navigation({
   const [showMeshPanel, setShowMeshPanel] = useState(false);
   const [showComputationPanel, setShowComputationPanel] = useState(false);
   const [showGenerateScenePanel, setShowGenerateScenePanel] = useState(false);
+  
+  // Inspector panel visibility states
+  const [showCompositionsInspector, setShowCompositionsInspector] = useState(false);
+  const [showSourcesInspector, setShowSourcesInspector] = useState(false);
+  const [showSensorsInspector, setShowSensorsInspector] = useState(false);
+  
+  // Creation panel visibility states
+  const [showCompositionPanel, setShowCompositionPanel] = useState(false);
+  const [showSensorPanel, setShowSensorPanel] = useState(false);
+  const [showCompoundVolume, setShowCompoundVolume] = useState(false);
 
   const menuStructure = {
     File: [
@@ -100,7 +128,8 @@ export default function Navigation({
     ],
     Scene: [
       'Generate Scene...',
-      'Start Computation'
+      'Start Computation',
+      'Physics Simulation'
     ],
     Mesh: [
       'Configure Mesh...'
@@ -134,7 +163,6 @@ export default function Navigation({
   };
 
   const handleItemClick = (item) => {
-    console.log(`Clicked: ${item}`);
     
     // Handle File menu actions
     switch (item) {
@@ -174,9 +202,7 @@ export default function Navigation({
         }
         break;
       case 'Sensor':
-        if (onShowSensorPanel) {
-          onShowSensorPanel();
-        }
+        setShowSensorsInspector(true);
         break;
       case 'Compound Volume':
         if (onShowCompoundVolume) {
@@ -189,8 +215,19 @@ export default function Navigation({
       case 'Start Computation':
         setShowComputationPanel(true);
         break;
+      case 'Physics Simulation':
+        if (onShowPhysicsPanel) {
+          onShowPhysicsPanel();
+        }
+        break;
       case 'Configure Mesh...':
         setShowMeshPanel(true);
+        break;
+      case 'Compositions':
+        setShowCompositionsInspector(true);
+        break;
+      case 'Sources':
+        setShowSourcesInspector(true);
         break;
       default:
         // Handle View menu actions
@@ -254,7 +291,6 @@ export default function Navigation({
 
   const handleAxisClick = (axis) => {
     setActiveAxis(axis);
-    console.log(`Axis changed to: ${axis}`);
     if (onAxisChange) {
       onAxisChange(axis);
     }
@@ -262,7 +298,6 @@ export default function Navigation({
 
   const handleViewModeClick = (mode) => {
     setViewMode(mode);
-    console.log(`View mode changed to: ${mode}`);
     if (onViewModeChange) {
       onViewModeChange(mode);
     }
@@ -270,7 +305,6 @@ export default function Navigation({
 
   const handleMaterialModeClick = (mode) => {
     setMaterialMode(mode);
-    console.log(`Material mode changed to: ${mode}`);
     if (onMaterialChange) {
       onMaterialChange(mode);
     }
@@ -281,7 +315,6 @@ export default function Navigation({
     try {
       await login(credentials);
       setShowLogin(false);
-      console.log('User logged in successfully');
     } catch (error) {
       console.error('Login failed:', error);
     }
@@ -291,7 +324,6 @@ export default function Navigation({
     try {
       await signup(userData);
       setShowSignup(false);
-      console.log('User signed up successfully');
     } catch (error) {
       console.error('Signup failed:', error);
     }
@@ -300,7 +332,6 @@ export default function Navigation({
   const handleLogout = async () => {
     try {
       await logout();
-      console.log('User logged out successfully');
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -319,19 +350,133 @@ export default function Navigation({
   // File operation handlers
   const handleSaveToComputer = () => {
     if (sceneData) {
-      const dataStr = JSON.stringify(sceneData, null, 2);
+      // Create comprehensive scene data with all components
+      const completeSceneData = {
+        ...sceneData,
+        
+        // Ensure all components are included
+        metadata: {
+          ...sceneData.metadata,
+          saved_at: new Date().toISOString(),
+          version: '2.0.0',
+          description: sceneData.metadata?.description || 'Complete Mercurad scene with all objects, compositions, sources, spectra, and sensors'
+        },
+        
+        // Include complete scene configuration
+        scene: {
+          ...sceneData.scene,
+          camera: sceneData.scene?.camera || {},
+          view: sceneData.scene?.view || {},
+          axis: sceneData.scene?.axis || 'Z',
+          background: sceneData.scene?.background || '#262626',
+          ambient_light: sceneData.scene?.ambient_light || 1.2,
+          directional_light: sceneData.scene?.directional_light || 3.0,
+          grid_size: sceneData.scene?.grid_size || 10.0,
+          grid_divisions: sceneData.scene?.grid_divisions || 10,
+          floor_constraint: sceneData.scene?.floor_constraint !== false,
+          floor_level: sceneData.scene?.floor_level || 0.0
+        },
+        
+        // Include all objects with complete properties
+        objects: sceneData.objects?.map(obj => ({
+          ...obj,
+          // Ensure all geometry properties are preserved
+          geometry: {
+            ...obj.geometry,
+            type: obj.geometry?.type || obj.type,
+            parameters: obj.geometry?.parameters || {},
+            // Preserve any additional geometry data
+            ...obj.geometry
+          },
+          // Ensure all volume properties are preserved
+          volume: {
+            ...obj.volume,
+            type: obj.volume?.type || 'solid',
+            composition: obj.volume?.composition || null,
+            spectrum: obj.volume?.spectrum || null,
+            realDensity: obj.volume?.realDensity || null,
+            tolerance: obj.volume?.tolerance || null,
+            isSource: obj.volume?.isSource || false,
+            gammaSelectionMode: obj.volume?.gammaSelectionMode || 'by-lines',
+            calculationMode: obj.volume?.calculationMode || 'by-lines',
+            // Preserve any additional volume data
+            ...obj.volume
+          },
+          // Preserve all position, rotation, scale data
+          position: obj.position || { x: 0, y: 0, z: 0 },
+          rotation: obj.rotation || { x: 0, y: 0, z: 0 },
+          scale: obj.scale || { x: 1, y: 1, z: 1 },
+          // Preserve all user data
+          userData: obj.userData || {},
+          // Preserve all other properties
+          ...obj
+        })) || [],
+        
+        // Include all compositions with complete properties
+        compositions: sceneData.compositions?.map(comp => ({
+          ...comp,
+          name: comp.name || 'Unnamed Composition',
+          density: comp.density || 1.0,
+          color: comp.color || '#888888',
+          elements: comp.elements || [],
+          // Preserve any additional composition data
+          ...comp
+        })) || [],
+        
+        // Include all spectra with complete properties
+        spectra: sceneData.spectra?.map(spec => ({
+          ...spec,
+          name: spec.name || 'Unnamed Spectrum',
+          type: spec.type || 'line',
+          multiplier: spec.multiplier || 1.0,
+          lines: spec.lines || [],
+          isotopes: spec.isotopes || [],
+          // Preserve any additional spectrum data
+          ...spec
+        })) || [],
+        
+        // Include all sensors with complete properties
+        sensors: sceneData.sensors?.map(sensor => ({
+          ...sensor,
+          name: sensor.name || 'SENSOR1',
+          coordinates: sensor.coordinates || { x: 0, y: 0, z: 0 },
+          buildup_type: sensor.buildup_type || 'automatic',
+          equi_importance: sensor.equi_importance || false,
+          response_function: sensor.response_function || 'ambient_dose',
+          // Preserve any additional sensor data
+          ...sensor
+        })) || [],
+        
+        // Include settings but preserve current UI state
+        settings: {
+          ...sceneData.settings,
+          selectedTool: sceneData.settings?.selectedTool || 'select',
+          hasObjects: (sceneData.objects?.length || 0) > 0,
+          hasSelectedObject: sceneData.settings?.hasSelectedObject || false
+        }
+      };
+      
+      const dataStr = JSON.stringify(completeSceneData, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
       
       const link = document.createElement('a');
       link.href = url;
-      link.download = `mercurad-scene-${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `mercurad-complete-scene-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      console.log('Scene saved to computer:', sceneData);
+      
+      // Show success message with details
+      const objectCount = completeSceneData.objects?.length || 0;
+      const compositionCount = completeSceneData.compositions?.length || 0;
+      const spectrumCount = completeSceneData.spectra?.length || 0;
+      const sensorCount = completeSceneData.sensors?.length || 0;
+      
+      alert(`Complete scene saved to computer!\n\nSaved:\n- ${objectCount} objects/volumes\n- ${compositionCount} compositions\n- ${spectrumCount} spectra\n- ${sensorCount} sensors\n\nAll properties, positions, and configurations preserved.`);
+      
     } else {
       console.error('No scene data available to save');
     }
@@ -365,6 +510,90 @@ export default function Navigation({
       const projects = existingProjects.results || existingProjects;
       const existingProject = projects.find(p => p.name === projectName);
       
+      // Prepare complete project data with all scene components
+      const completeProjectData = {
+        name: projectName,
+        description: sceneData.metadata?.description || '3D Scene with volumes and geometries',
+        is_public: false,
+        
+        // Scene configuration
+        scene_configuration: {
+          camera: sceneData.scene?.camera || {},
+          view: sceneData.scene?.view || {},
+          axis: sceneData.scene?.axis || 'Z',
+          background: sceneData.scene?.background || '#262626',
+          ambient_light: sceneData.scene?.ambient_light || 1.2,
+          directional_light: sceneData.scene?.directional_light || 3.0,
+          grid_size: sceneData.scene?.grid_size || 10.0,
+          grid_divisions: sceneData.scene?.grid_divisions || 10,
+          floor_constraint: sceneData.scene?.floor_constraint !== false,
+          floor_level: sceneData.scene?.floor_level || 0.0
+        },
+        
+        // Complete geometries data
+        geometries: sceneData.objects?.map(obj => ({
+          id: obj.id,
+          name: obj.name || 'Unnamed Geometry',
+          type: obj.geometry?.type || obj.type,
+          position: obj.position || { x: 0, y: 0, z: 0 },
+          rotation: obj.rotation || { x: 0, y: 0, z: 0 },
+          scale: obj.scale || { x: 1, y: 1, z: 1 },
+          color: obj.color || '#888888',
+          opacity: obj.opacity || 1.0,
+          transparent: obj.transparent || false,
+          parameters: obj.geometry?.parameters || {},
+          userData: obj.userData || {}
+        })) || [],
+        
+        // Complete compositions data
+        compositions: sceneData.compositions?.map(comp => ({
+          id: comp.id,
+          name: comp.name,
+          density: comp.density,
+          color: comp.color,
+          elements: comp.elements || []
+        })) || [],
+        
+        // Complete spectra data
+        spectra: sceneData.spectra?.map(spec => ({
+          id: spec.id,
+          name: spec.name,
+          type: spec.type,
+          multiplier: spec.multiplier || 1.0,
+          lines: spec.lines || [],
+          isotopes: spec.isotopes || []
+        })) || [],
+        
+        // Complete sensors data
+        sensors: sceneData.sensors?.map(sensor => ({
+          id: sensor.id,
+          name: sensor.name,
+          coordinates: sensor.coordinates,
+          buildup_type: sensor.buildup_type || 'automatic',
+          equi_importance: sensor.equi_importance || false,
+          response_function: sensor.response_function || 'ambient_dose'
+        })) || [],
+        
+        // Complete volumes data (linking geometries, compositions, spectra)
+        volumes: sceneData.objects?.map(obj => ({
+          id: obj.id,
+          name: obj.name || 'Unnamed Volume',
+          type: obj.volume?.type || 'solid',
+          geometry_id: obj.id, // Link to geometry
+          composition_id: obj.volume?.composition?.id || null,
+          spectrum_id: obj.volume?.spectrum?.id || null,
+          real_density: obj.volume?.realDensity || null,
+          tolerance: obj.volume?.tolerance || null,
+          is_source: obj.volume?.isSource || false,
+          gamma_selection_mode: obj.volume?.gammaSelectionMode || 'by-lines',
+          calculation_mode: obj.volume?.calculationMode || 'by-lines'
+        })) || [],
+        
+        // Additional metadata
+        metadata: sceneData.metadata || {},
+        settings: sceneData.settings || {}
+      };
+      
       let savedProject;
       
       if (existingProject) {
@@ -375,79 +604,16 @@ export default function Navigation({
         
         if (!overwrite) return;
         
-        // Update existing project
-        const projectData = {
-          name: projectName,
-          description: sceneData.metadata?.description || '3D Scene with volumes and geometries',
-          is_public: false,
-          scene_configuration: {
-            camera: sceneData.scene?.camera || {},
-            view: sceneData.scene?.view || {},
-            axis: sceneData.scene?.axis || 'Z'
-          },
-          geometries: sceneData.objects?.map(obj => ({
-            geometry_type: obj.geometry?.type || obj.type,
-            parameters: obj.geometry?.parameters || {},
-            position: obj.position || { x: 0, y: 0, z: 0 },
-            rotation: obj.rotation || { x: 0, y: 0, z: 0 },
-            scale: obj.scale || { x: 1, y: 1, z: 1 },
-            user_data: obj.userData || {}
-          })) || [],
-          volumes: sceneData.objects?.map(obj => ({
-            name: obj.name || 'Unnamed Volume',
-            volume_type: obj.volume?.type || 'Unknown',
-            composition: obj.volume?.composition || null,
-            real_density: obj.volume?.realDensity || 0,
-            tolerance: obj.volume?.tolerance || 0,
-            is_source: obj.volume?.isSource || false,
-            calculation: obj.volume?.calculation || null,
-            gamma_selection_mode: obj.volume?.gammaSelectionMode || null,
-            spectrum: obj.volume?.spectrum || null
-          })) || []
-        };
-        
-        savedProject = await apiService.updateProject(existingProject.id, projectData);
-        console.log('Project updated successfully:', savedProject);
+        // Update existing project using complete project API
+        savedProject = await apiService.updateCompleteProject(existingProject.id, completeProjectData);
         
       } else {
-        // Create new project
-        const projectData = {
-          name: projectName,
-          description: sceneData.metadata?.description || '3D Scene with volumes and geometries',
-          is_public: false,
-          scene_configuration: {
-            camera: sceneData.scene?.camera || {},
-            view: sceneData.scene?.view || {},
-            axis: sceneData.scene?.axis || 'Z'
-          },
-          geometries: sceneData.objects?.map(obj => ({
-            geometry_type: obj.geometry?.type || obj.type,
-            parameters: obj.geometry?.parameters || {},
-            position: obj.position || { x: 0, y: 0, z: 0 },
-            rotation: obj.rotation || { x: 0, y: 0, z: 0 },
-            scale: obj.scale || { x: 1, y: 1, z: 1 },
-            user_data: obj.userData || {}
-          })) || [],
-          volumes: sceneData.objects?.map(obj => ({
-            name: obj.name || 'Unnamed Volume',
-            volume_type: obj.volume?.type || 'Unknown',
-            composition: obj.volume?.composition || null,
-            real_density: obj.volume?.realDensity || 0,
-            tolerance: obj.volume?.tolerance || 0,
-            is_source: obj.volume?.isSource || false,
-            calculation: obj.volume?.calculation || null,
-            gamma_selection_mode: obj.volume?.gammaSelectionMode || null,
-            spectrum: obj.volume?.spectrum || null
-          })) || []
-        };
-        
-        console.log('Saving project to cloud:', projectData);
-        savedProject = await apiService.createProject(projectData);
-        console.log('Project saved successfully:', savedProject);
+        // Create new project using complete project API
+        savedProject = await apiService.createCompleteProject(completeProjectData);
       }
       
       // Show success message
-      alert(`Project "${savedProject.name}" saved successfully to your account!`);
+      alert(`Project "${savedProject.name}" saved successfully to your account!\n\nSaved:\n- ${savedProject.geometries?.length || 0} geometries\n- ${savedProject.compositions?.length || 0} compositions\n- ${savedProject.spectra?.length || 0} spectra\n- ${savedProject.sensors?.length || 0} sensors\n- ${savedProject.volumes?.length || 0} volumes`);
       
     } catch (error) {
       console.error('Failed to save project to cloud:', error);
@@ -470,7 +636,6 @@ export default function Navigation({
           reader.onload = (event) => {
             try {
               const sceneData = JSON.parse(event.target.result);
-              console.log('Scene loaded from computer:', sceneData);
               
               // Load the scene data into the application
               if (window.loadSceneData) {
@@ -505,7 +670,6 @@ export default function Navigation({
       
       downloadOBJ(objContent, filename);
       
-      console.log(`Exported ${geometries.length} objects to ${filename}`);
     } catch (error) {
       console.error('Error exporting OBJ:', error);
       alert('Error exporting OBJ file. Please try again.');
@@ -547,66 +711,127 @@ export default function Navigation({
         return;
       }
       
-      console.log('Loading project from cloud:', selectedProject);
       
-      // Convert backend project data to scene data format
+      // Load complete project data using the new API
+      const completeProject = await apiService.getCompleteProject(selectedProject.id);
+      
+      // Convert complete backend project data to scene data format
       const sceneData = {
         timestamp: new Date().toISOString(),
-        version: '1.0.0',
+        version: '2.0.0',
         metadata: {
-          name: selectedProject.name,
-          description: selectedProject.description || 'Loaded from cloud',
-          created: selectedProject.created_at,
-          modified: selectedProject.updated_at
+          name: completeProject.name,
+          description: completeProject.description || 'Loaded from cloud',
+          created: completeProject.created_at,
+          modified: completeProject.updated_at,
+          loaded_from_cloud: true
         },
+        
+        // Complete scene configuration
         scene: {
-          camera: selectedProject.scene_configuration?.camera || {},
-          view: selectedProject.scene_configuration?.view || {},
-          axis: selectedProject.scene_configuration?.axis || 'Z'
+          camera: {
+            position: completeProject.scene_config?.camera_position || {},
+            rotation: completeProject.scene_config?.camera_rotation || {},
+            type: completeProject.scene_config?.camera_type || 'perspective',
+            fov: completeProject.scene_config?.camera_fov || 75.0,
+            near: completeProject.scene_config?.camera_near || 0.1,
+            far: completeProject.scene_config?.camera_far || 1000.0
+          },
+          view: {
+            mode: 'solid', // Default view mode
+            material: 'solid' // Default material mode
+          },
+          axis: 'Z', // Default axis
+          background: completeProject.scene_config?.background_color || '#262626',
+          ambient_light: completeProject.scene_config?.ambient_light_intensity || 1.2,
+          directional_light: completeProject.scene_config?.directional_light_intensity || 3.0,
+          grid_size: completeProject.scene_config?.grid_size || 10.0,
+          grid_divisions: completeProject.scene_config?.grid_divisions || 10,
+          floor_constraint: completeProject.scene_config?.floor_constraint_enabled !== false,
+          floor_level: completeProject.scene_config?.floor_level || 0.0
         },
-        objects: selectedProject.geometries?.map((geom, index) => ({
-          id: geom.id || Date.now() + index,
-          type: geom.geometry_type,
-          name: selectedProject.volumes?.[index]?.name || 'Unnamed Volume',
-          position: geom.position || { x: 0, y: 0, z: 0 },
-          rotation: geom.rotation || { x: 0, y: 0, z: 0 },
-          scale: geom.scale || { x: 1, y: 1, z: 1 },
-          geometry: {
+        
+        // Convert geometries to objects format
+        objects: completeProject.geometries?.map(geom => {
+          // Find associated volume
+          const volume = completeProject.volumes?.find(v => v.geometry === geom.id);
+          
+          return {
+            id: geom.id,
             type: geom.geometry_type,
-            parameters: geom.parameters || {}
-          },
-          volume: selectedProject.volumes?.[index] ? {
-            name: selectedProject.volumes[index].name,
-            type: selectedProject.volumes[index].volume_type,
-            composition: selectedProject.volumes[index].composition,
-            realDensity: selectedProject.volumes[index].real_density,
-            tolerance: selectedProject.volumes[index].tolerance,
-            isSource: selectedProject.volumes[index].is_source,
-            calculation: selectedProject.volumes[index].calculation,
-            gammaSelectionMode: selectedProject.volumes[index].gamma_selection_mode,
-            spectrum: selectedProject.volumes[index].spectrum
-          } : null,
-          userData: geom.user_data || {}
+            name: geom.name || 'Unnamed Geometry',
+            position: geom.position || { x: 0, y: 0, z: 0 },
+            rotation: geom.rotation || { x: 0, y: 0, z: 0 },
+            scale: geom.scale || { x: 1, y: 1, z: 1 },
+            color: geom.color || '#888888',
+            opacity: geom.opacity || 1.0,
+            transparent: geom.transparent || false,
+            geometry: {
+              type: geom.geometry_type,
+              parameters: geom.geometry_parameters || {}
+            },
+            volume: volume ? {
+              name: volume.volume_name,
+              type: volume.volume_type,
+              composition: volume.composition,
+              spectrum: volume.spectrum,
+              realDensity: volume.real_density,
+              tolerance: volume.tolerance,
+              isSource: volume.is_source,
+              gammaSelectionMode: volume.gamma_selection_mode,
+              calculationMode: volume.calculation_mode
+            } : null,
+            userData: geom.user_data || {}
+          };
+        }) || [],
+        
+        // Convert compositions
+        compositions: completeProject.compositions?.map(comp => ({
+          id: comp.id,
+          name: comp.name,
+          density: comp.density,
+          color: comp.color,
+          elements: comp.elements || []
         })) || [],
+        
+        // Convert spectra
+        spectra: completeProject.spectra?.map(spec => ({
+          id: spec.id,
+          name: spec.name,
+          type: spec.spectrum_type,
+          multiplier: spec.multiplier,
+          lines: spec.lines || [],
+          isotopes: spec.isotopes || []
+        })) || [],
+        
+        // Convert sensors
+        sensors: completeProject.sensors?.map(sensor => ({
+          id: sensor.id,
+          name: sensor.name,
+          coordinates: sensor.coordinates,
+          buildup_type: sensor.buildup_type,
+          equi_importance: sensor.equi_importance,
+          response_function: sensor.response_function
+        })) || [],
+        
+        // Settings - Don't include componentVisibility to preserve current UI state
         settings: {
-          componentVisibility: {
-            contextualHelp: false,
-            helpOverlay: true,
-            geometrySelector: true,
-            volumeForm: false,
-            rotationSliders: true,
-            debugPanel: false
-          },
           selectedTool: 'select',
-          hasObjects: (selectedProject.geometries?.length || 0) > 0,
+          hasObjects: (completeProject.geometries?.length || 0) > 0,
           hasSelectedObject: false
         }
       };
       
-      // Load the scene data
+      // Load the complete scene data
       if (window.loadSceneData) {
         window.loadSceneData(sceneData);
-        alert(`Project "${selectedProject.name}" loaded successfully!`);
+        
+        const objectCount = sceneData.objects?.length || 0;
+        const compositionCount = sceneData.compositions?.length || 0;
+        const spectrumCount = sceneData.spectra?.length || 0;
+        const sensorCount = sceneData.sensors?.length || 0;
+        
+        alert(`Project "${completeProject.name}" loaded successfully!\n\nLoaded:\n- ${objectCount} objects/volumes\n- ${compositionCount} compositions\n- ${spectrumCount} spectra\n- ${sensorCount} sensors\n\nAll properties and configurations restored.`);
       } else {
         console.error('loadSceneData function not available');
         alert('Failed to load project. Please try again.');
@@ -622,7 +847,6 @@ export default function Navigation({
     if (onCreateNewProject) {
       onCreateNewProject();
     } else {
-      console.log('Creating new project...');
       // The actual new project logic would be implemented in the parent component
     }
   };
@@ -631,13 +855,11 @@ export default function Navigation({
     if (onExportImage) {
       onExportImage();
     } else {
-      console.log('Exporting image...');
       // The actual export logic would be implemented in the parent component
     }
   };
 
   const handlePrint = () => {
-    console.log('Printing scene...');
     
     // Get the Three.js canvas element
     const canvas = document.querySelector('canvas');
@@ -817,7 +1039,6 @@ export default function Navigation({
 
   const handleQuit = () => {
     // This would close the application
-    console.log('Quitting Mercurad...');
     // In a web app, this might just show a confirmation dialog
     if (window.confirm('Are you sure you want to quit Mercurad?')) {
       window.close();
@@ -864,14 +1085,29 @@ export default function Navigation({
         );
       }
       
+      // File menu items with icons
+      const fileMenuIcons = {
+        'Save to Computer': Laptop,
+        'Save to Cloud': Cloud,
+        'Load from Computer': HardDriveUpload,
+        'Load from Cloud': CloudUpload,
+        'Create New Project': CirclePlus,
+        'Export (Image)': Image,
+        'Export (OBJ)': FileBox,
+        'Print': Printer
+      };
+      
+      const IconComponent = fileMenuIcons[item];
+      
       // Regular menu items
       return (
         <li
           key={item}
           onClick={() => handleItemClick(item)}
-          className="px-3 py-2 hover:bg-neutral-600 cursor-pointer text-white text-[13px] whitespace-nowrap"
+          className="px-3 py-2 hover:bg-neutral-600 cursor-pointer text-white text-[13px] whitespace-nowrap flex items-center space-x-2"
         >
-          {item}
+          {IconComponent && <IconComponent size={14} className="text-neutral-400" />}
+          <span>{item}</span>
         </li>
       );
     }
@@ -1090,6 +1326,118 @@ export default function Navigation({
           onClose={() => setShowGenerateScenePanel(false)}
           sceneData={sceneData}
           onSceneGenerated={onSceneGenerated}
+        />
+      )}
+
+      {/* Inspector Panels */}
+      {showCompositionsInspector && (
+        <CompositionsInspectorPanel
+          isVisible={showCompositionsInspector}
+          onClose={() => setShowCompositionsInspector(false)}
+          compositions={compositions}
+          onEditComposition={(composition) => {
+            // TODO: Implement edit composition functionality
+            console.log('Edit composition:', composition);
+          }}
+          onDeleteComposition={(composition) => {
+            // TODO: Implement delete composition functionality
+            console.log('Delete composition:', composition);
+          }}
+          onCreateComposition={() => {
+            setShowCompositionPanel(true);
+          }}
+        />
+      )}
+
+      {showSourcesInspector && (
+        <SourcesInspectorPanel
+          isVisible={showSourcesInspector}
+          onClose={() => setShowSourcesInspector(false)}
+          sources={sources}
+          onEditSource={(source) => {
+            // TODO: Implement edit source functionality
+            console.log('Edit source:', source);
+          }}
+          onDeleteSource={(source) => {
+            // TODO: Implement delete source functionality
+            console.log('Delete source:', source);
+          }}
+          onCreateSource={() => {
+            setShowCompoundVolume(true);
+          }}
+        />
+      )}
+
+      {showSensorsInspector && (
+        <SensorsInspectorPanel
+          isVisible={showSensorsInspector}
+          onClose={() => setShowSensorsInspector(false)}
+          sensors={sensors}
+          onEditSensor={(sensor) => {
+            // TODO: Implement edit sensor functionality
+            console.log('Edit sensor:', sensor);
+          }}
+          onDeleteSensor={(sensor) => {
+            // TODO: Implement delete sensor functionality
+            console.log('Delete sensor:', sensor);
+          }}
+          onCreateSensor={() => {
+            setShowSensorPanel(true);
+          }}
+        />
+      )}
+
+      {/* Creation Panels */}
+      {showCompositionPanel && (
+        <CompositionPanel
+          isVisible={showCompositionPanel}
+          onClose={() => setShowCompositionPanel(false)}
+          onUse={(composition) => {
+            // TODO: Implement use composition functionality
+            console.log('Use composition:', composition);
+            setShowCompositionPanel(false);
+          }}
+          onStore={(composition) => {
+            // TODO: Implement store composition functionality
+            console.log('Store composition:', composition);
+            setShowCompositionPanel(false);
+          }}
+          existingCompositions={existingCompositions}
+        />
+      )}
+
+      {showSensorPanel && (
+        <SensorPanel
+          isVisible={showSensorPanel}
+          onClose={() => setShowSensorPanel(false)}
+          onValidate={(sensors) => {
+            // TODO: Implement validate sensors functionality
+            console.log('Validate sensors:', sensors);
+          }}
+          onSaveAs={(sensors) => {
+            // TODO: Implement save sensors functionality
+            console.log('Save sensors:', sensors);
+            setShowSensorPanel(false);
+          }}
+          existingSensors={existingSensors}
+          existingCompositions={existingCompositions}
+        />
+      )}
+
+      {showCompoundVolume && (
+        <CompoundVolume
+          isVisible={showCompoundVolume}
+          onClose={() => setShowCompoundVolume(false)}
+          onValidate={(volume) => {
+            // TODO: Implement validate volume functionality
+            console.log('Validate volume:', volume);
+          }}
+          onSaveAs={(volume) => {
+            // TODO: Implement save volume functionality
+            console.log('Save volume:', volume);
+            setShowCompoundVolume(false);
+          }}
+          existingCompositions={existingCompositions}
         />
       )}
     </nav>

@@ -24,7 +24,15 @@ import {
   Rainbow,
   Dam,
   RectangleCircle,
-  Atom
+  Atom,
+  Torus,
+  LineSquiggle,
+  Shapes,
+  Circle,
+  CircleSmall,
+  Club,
+  Diamond,
+  Hexagon
 } from 'lucide-react';
 
 export default function Directory({ 
@@ -39,11 +47,9 @@ export default function Directory({
   onSelectObject,
   onToggleVisibility,
   onClearAllObjects,
+  onShowProperties,
   selectedObjectId,
-  layoutPosition = 'left',
-  dockedComponents = [],
-  onDockComponent,
-  onUndockComponent
+  layoutPosition = 'left'
 }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({
@@ -59,81 +65,21 @@ export default function Directory({
   const [editValue, setEditValue] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
-  const [showDockZones, setShowDockZones] = useState(false);
-  const [draggedComponent, setDraggedComponent] = useState(null);
   
   // Fixed positioning - no dragging or resizing
   const directoryRef = useRef();
 
   // Debug: Log when existingVolumes changes
   useEffect(() => {
-    console.log('Directory: existingVolumes updated:', existingVolumes);
   }, [existingVolumes]);
 
-  // Docking functionality
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    
-    // Check if we have a valid component being dragged
-    const types = e.dataTransfer.types;
-    console.log('Directory: Drag over, types:', types, 'docked:', dockedComponents.length);
-    if (types && types.includes('component-type') && dockedComponents.length < 3) {
-      setShowDockZones(true);
-      setDraggedComponent('component'); // Generic name since we can't get the actual type yet
+  // Synchronize selectedItemId with selectedObjectId prop
+  useEffect(() => {
+    if (selectedObjectId === null) {
+      setSelectedItemId(null);
     }
-  };
+  }, [selectedObjectId]);
 
-  const handleDragEnter = (e) => {
-    e.preventDefault();
-    console.log('Directory: Drag enter');
-    // Show dock zones if we have space and a valid drag operation
-    if (dockedComponents.length < 3) {
-      setShowDockZones(true);
-      console.log('Directory: Showing dock zones');
-    }
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    console.log('Directory: Drag leave', e.relatedTarget);
-    // Only hide dock zones if leaving the directory area completely
-    if (!directoryRef.current?.contains(e.relatedTarget)) {
-      setShowDockZones(false);
-      setDraggedComponent(null);
-      console.log('Directory: Hiding dock zones');
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    console.log('Directory: Drop event triggered');
-    const componentType = e.dataTransfer.getData('component-type');
-    const componentData = e.dataTransfer.getData('component-data');
-    console.log('Directory: Drop data - type:', componentType, 'data:', componentData);
-    
-    if (componentType && dockedComponents.length < 3 && onDockComponent) {
-      try {
-        const data = componentData ? JSON.parse(componentData) : {};
-        console.log('Directory: Docking component:', componentType, data);
-        onDockComponent(componentType, data);
-      } catch (error) {
-        console.error('Error parsing component data:', error);
-        onDockComponent(componentType, {});
-      }
-    } else {
-      console.log('Directory: Drop rejected - type:', componentType, 'docked:', dockedComponents.length, 'onDockComponent:', !!onDockComponent);
-    }
-    
-    setShowDockZones(false);
-    setDraggedComponent(null);
-  };
-
-  const handleUndock = (componentId) => {
-    if (onUndockComponent) {
-      onUndockComponent(componentId);
-    }
-  };
 
   // Get sources (volumes with isSource: true)
   const sources = existingVolumes.filter(volume => volume.userData?.isSource);
@@ -332,6 +278,19 @@ export default function Directory({
       case 'sphere': return <Eclipse size={14} className="text-green-400" />;
       case 'cylinder': return <Cylinder size={14} className="text-yellow-400" />;
       case 'cone': return <Cone size={14} className="text-purple-400" />;
+      case 'capsule': return <CircleSmall size={14} className="text-red-400" />;
+      case 'dodecahedron': return <Diamond size={14} className="text-teal-400" />;
+      case 'extrude': return <Shapes size={14} className="text-blue-300" />;
+      case 'icosahedron': return <Hexagon size={14} className="text-green-300" />;
+      case 'lathe': return <LineSquiggle size={14} className="text-yellow-300" />;
+      case 'octahedron': return <Club size={14} className="text-purple-300" />;
+      case 'plane': return <Circle size={14} className="text-green-300" />;
+      case 'ring': return <Circle size={14} className="text-yellow-400" />;
+      case 'shape': return <Shapes size={14} className="text-purple-300" />;
+      case 'tetrahedron': return <Diamond size={14} className="text-blue-300" />;
+      case 'torus': return <Torus size={14} className="text-orange-300" />;
+      case 'torusknot': return <Torus size={14} className="text-green-300" />;
+      case 'tube': return <Cylinder size={14} className="text-pink-300" />;
       case 'compound': return <Layers size={14} className="text-orange-400" />;
       case 'source': return <Atom size={14} className="text-red-400" />;
       case 'composition': return <RectangleCircle size={14} className="text-cyan-400" />;
@@ -342,13 +301,33 @@ export default function Directory({
     }
   };
 
+  // Debug: Log volumes on component mount/update and remove duplicates
+  useEffect(() => {
+    console.log('Directory received volumes:', existingVolumes.length, existingVolumes.map(v => ({ id: v.id, name: v.name || v.userData?.volumeName })));
+    
+    // Additional safeguard: Check for duplicates in the received data
+    const ids = existingVolumes.map(v => v.id);
+    const uniqueIds = [...new Set(ids)];
+    if (ids.length !== uniqueIds.length) {
+      console.warn('Directory received duplicate volumes! IDs:', ids);
+    }
+  }, [existingVolumes]);
+
   const renderItem = (item, level = 0) => {
     const isExpanded = expandedFolders[item.id];
     const isSelected = selectedItemId === item.id;
     const isEditing = editingItem === item.id;
     
+    // Debug: Log duplicate keys
+    if (item.id && existingVolumes.filter(v => v.id === item.id).length > 1) {
+      console.warn('Duplicate volume ID found:', item.id, item);
+    }
+    
+    // Generate unique key to prevent React warnings
+    const uniqueKey = `${item.id}-${item.type}-${level}`;
+    
     return (
-      <div key={item.id} className="select-none">
+      <div key={uniqueKey} className="select-none">
         <div 
           className={`flex items-center py-1 px-2 hover:bg-neutral-600 cursor-pointer group ${
             isSelected ? 'bg-blue-600' : ''
@@ -427,7 +406,6 @@ export default function Directory({
                       onSelectObject(item);
                     }
                     // You could add a specific handler for loading examples here
-                    console.log('Loading example:', item.name, item.data);
                   }}
                   className="p-1 hover:bg-neutral-500 rounded"
                   title="Load Example"
@@ -469,13 +447,25 @@ export default function Directory({
                     onClick={(e) => {
                       e.stopPropagation();
                       if (onDeleteObject) {
-                        onDeleteObject(item.id);
+                        onDeleteObject(item.id, item.type);
                       }
                     }}
                     className="p-1 hover:bg-neutral-500 rounded"
                     title="Delete"
                   >
                     <Trash2 size={10} className="text-red-400" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onShowProperties) {
+                        onShowProperties(item);
+                      }
+                    }}
+                    className="p-1 hover:bg-neutral-500 rounded"
+                    title="Properties"
+                  >
+                    <Settings size={10} className="text-blue-400" />
                   </button>
                 </>
               )}
@@ -639,10 +629,6 @@ export default function Directory({
       className="bg-neutral-800 shadow-2xl border border-neutral-600 rounded-lg pointer-events-auto fixed focus:outline-none"
       style={getPositionStyle()}
       tabIndex={0}
-      onDragOver={handleDragOver}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
     >
       {/* Header */}
       <div className="flex items-center justify-between bg-neutral-700 px-4 py-3">
@@ -713,43 +699,6 @@ export default function Directory({
         </div>
       )}
 
-      {/* Dock Zones - Show when dragging components */}
-      {showDockZones && (
-        <div className="absolute bottom-0 left-0 right-0 bg-blue-600 bg-opacity-20 border-2 border-dashed border-blue-400 rounded-t-lg p-2">
-          <div className="text-center text-blue-300 text-xs">
-            Drop {draggedComponent} here to dock ({(3 - dockedComponents.length)} slots remaining)
-          </div>
-        </div>
-      )}
-
-      {/* Docked Components */}
-      {dockedComponents.length > 0 && (
-        <div className="border-t border-neutral-600 bg-neutral-750">
-          <div className="px-3 py-2 text-xs text-neutral-400 font-medium">
-            Docked Components ({dockedComponents.length}/3)
-          </div>
-          <div className="space-y-1 px-3 pb-3">
-            {dockedComponents.map((component, index) => (
-              <div
-                key={component.id || index}
-                className="flex items-center justify-between bg-neutral-700 rounded px-2 py-1 text-xs"
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <span className="text-white">{component.name || component.type}</span>
-                </div>
-                <button
-                  onClick={() => handleUndock(component.id || index)}
-                  className="text-neutral-400 hover:text-white p-1"
-                  title="Undock"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Context Menu */}
       {contextMenu && (
@@ -770,7 +719,6 @@ export default function Directory({
                   if (onSelectObject) {
                     onSelectObject(contextMenu.item);
                   }
-                  console.log('Loading example:', contextMenu.item.name, contextMenu.item.data);
                   closeContextMenu();
                 }}
                 className="w-full px-3 py-2 text-left text-indigo-400 text-xs hover:bg-neutral-600 flex items-center space-x-2"
@@ -781,7 +729,6 @@ export default function Directory({
               <button
                 onClick={() => {
                   setSelectedItemId(contextMenu.item.id);
-                  console.log('View details for:', contextMenu.item.name);
                   closeContextMenu();
                 }}
                 className="w-full px-3 py-2 text-left text-white text-xs hover:bg-neutral-600 flex items-center space-x-2"
@@ -831,7 +778,7 @@ export default function Directory({
                   setSelectedItemId(contextMenu.item.id);
                   if (onDeleteObject) {
                     if (window.confirm(`Are you sure you want to delete "${contextMenu.item.name}"?`)) {
-                      onDeleteObject(contextMenu.item.id);
+                      onDeleteObject(contextMenu.item.id, contextMenu.item.type);
                     }
                   }
                   closeContextMenu();

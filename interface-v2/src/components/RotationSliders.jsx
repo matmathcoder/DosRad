@@ -24,7 +24,6 @@ export default function RotationSliders({ onRotationChange }) {
 
   const handleMinimize = () => {
     setIsMinimized(!isMinimized);
-    console.log(`Rotation sliders ${isMinimized ? 'restored' : 'minimized'}`);
   };
 
   const handleWheelInteraction = (wheelType, event, rect) => {
@@ -188,7 +187,6 @@ export default function RotationSliders({ onRotationChange }) {
   );
 
   const handleDragStart = (e) => {
-    console.log('RotationSliders: Starting drag');
     e.dataTransfer.setData('component-type', 'rotation-sliders');
     e.dataTransfer.setData('component-data', JSON.stringify({
       name: 'Scene Rotation',
@@ -197,7 +195,6 @@ export default function RotationSliders({ onRotationChange }) {
       verticalRotation
     }));
     e.dataTransfer.effectAllowed = 'move';
-    console.log('RotationSliders: Drag data set', e.dataTransfer.types);
   };
 
   return (

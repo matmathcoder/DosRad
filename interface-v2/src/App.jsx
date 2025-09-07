@@ -16,6 +16,9 @@ import ContextualHelp from './components/ContextualHelp';
 import BottomBar from './components/Bars/BottomBar';
 import RotationSliders from './components/RotationSliders';
 import Directory from './components/Directory';
+import DockingConnector from './components/DockingConnector';
+import VolumePropertiesPanel from './components/VolumePropertiesPanel';
+import PhysicsControlPanel from './components/PhysicsControlPanel';
 import { AuthProvider } from './contexts/AuthContext';
 import ApiService from './services/api';
 
@@ -24,6 +27,12 @@ export default function App() {
   const [showGeometryPanel, setShowGeometryPanel] = useState(false);
   const [showSensorPanel, setShowSensorPanel] = useState(false);
   const [showCompoundVolume, setShowCompoundVolume] = useState(false);
+  const [showVolumeProperties, setShowVolumeProperties] = useState(false);
+  const [selectedVolumeData, setSelectedVolumeData] = useState(null);
+  const [showPhysicsPanel, setShowPhysicsPanel] = useState(false);
+  const [physicsSimulationResults, setPhysicsSimulationResults] = useState([]);
+  const [isPhysicsSimulating, setIsPhysicsSimulating] = useState(false);
+  const [physicsSimulationProgress, setPhysicsSimulationProgress] = useState(0);
   const [selectedGeometry, setSelectedGeometry] = useState(null);
   const [existingVolumes, setExistingVolumes] = useState([]);
   const [existingSensors, setExistingSensors] = useState([]);
@@ -87,6 +96,15 @@ export default function App() {
     { name: 'Mixed Fission', type: 'group', multiplier: 1.0, isotopes: ['Cs-137', 'Sr-90', 'I-131'] }
   ]);
 
+  const handleToolSelect = (toolId) => {
+    setSelectedTool(toolId);
+    
+    // Update camera mode when camera tool is used
+    if (toolId === 'camera') {
+      setCameraMode(prev => prev === 'perspective' ? 'orthographic' : 'perspective');
+    }
+  };
+
   const handleShowVolumeForm = () => {
     setShowVolumeForm(true);
     // Also ensure the volume form component is visible
@@ -94,7 +112,6 @@ export default function App() {
       ...prev,
       volumeForm: true
     }));
-    console.log('Volume form should now be visible');
   };
 
   const handleVolumeFormClose = () => {
@@ -175,15 +192,6 @@ export default function App() {
   const handleSpectrumSaveAs = (spectrumData) => {
     // In real app, this would save to database
     handleSpectrumValidate(spectrumData);
-  };
-
-  const handleToolSelect = (toolId) => {
-    setSelectedTool(toolId);
-    
-    // Update camera mode when camera tool is used
-    if (toolId === 'camera') {
-      setCameraMode(prev => prev === 'perspective' ? 'orthographic' : 'perspective');
-    }
   };
 
   const handleGeometrySelect = (geometryType) => {
@@ -442,7 +450,6 @@ export default function App() {
   };
 
   const loadExampleScene = (exampleData) => {
-    console.log('Loading example scene:', exampleData);
     
     // Check if this example is already loaded to prevent duplicates
     const existingExampleVolumes = existingVolumes.filter(vol => 
@@ -455,7 +462,6 @@ export default function App() {
     );
     
     if (existingExampleVolumes.length > 0) {
-      console.log('Example already loaded, skipping duplicate load');
       return;
     }
     
@@ -502,7 +508,6 @@ export default function App() {
     });
     
     setHasObjects(true);
-    console.log(`Loaded example scene: ${exampleData.name} with ${volumes.length} volumes`);
   };
 
   // Layout swap functionality - Only 2 layouts: left/right swap
@@ -561,12 +566,10 @@ export default function App() {
     };
 
     setDockedComponents(prev => [...prev, newComponent]);
-    console.log(`Docked ${componentType} to Directory`);
   };
 
   const handleUndockComponent = (componentId) => {
     setDockedComponents(prev => prev.filter(comp => comp.id !== componentId));
-    console.log(`Undocked component ${componentId} from Directory`);
   };
 
   const handleSceneRotationChange = (rotation) => {
@@ -669,7 +672,6 @@ export default function App() {
             return geometry;
           });
           localStorage.setItem('mercurad_scene', JSON.stringify({ ...sceneData, geometries: updatedGeometries }));
-          console.log(`Geometry ${geometryId} updated in localStorage`);
         }
       }
     } catch (error) {
@@ -740,6 +742,58 @@ export default function App() {
     }));
   };
 
+  // Physics simulation handlers
+  const handlePhysicsPanelClose = () => {
+    setShowPhysicsPanel(false);
+  };
+
+  const handleStartPhysicsSimulation = (config) => {
+    setIsPhysicsSimulating(true);
+    setPhysicsSimulationProgress(0);
+    
+    // Run the simulation using the global function
+    if (window.runPhysicsSimulation) {
+      try {
+        const results = window.runPhysicsSimulation(config);
+        setPhysicsSimulationResults(results || []);
+        
+        // Create visualization
+        if (window.createPhysicsVisualization) {
+          window.createPhysicsVisualization();
+        }
+      } catch (error) {
+        console.error('Physics simulation error:', error);
+      }
+    } else {
+      console.error('runPhysicsSimulation function not available');
+    }
+    
+    setIsPhysicsSimulating(false);
+    setPhysicsSimulationProgress(1);
+  };
+
+  const handleStopPhysicsSimulation = () => {
+    setIsPhysicsSimulating(false);
+    if (window.stopPhysicsSimulation) {
+      window.stopPhysicsSimulation();
+    }
+  };
+
+  const handlePhysicsSimulationProgress = (progress) => {
+    setPhysicsSimulationProgress(progress);
+  };
+
+  const handlePhysicsSimulationComplete = (results) => {
+    setPhysicsSimulationResults(results);
+    setIsPhysicsSimulating(false);
+    setPhysicsSimulationProgress(1);
+    
+    // Create visualization
+    if (window.createPhysicsVisualization) {
+      window.createPhysicsVisualization();
+    }
+  };
+
   const handleCompoundVolumeImport = (importData) => {
  // In a real app, this would:
     // 1. Load the compound object from file system
@@ -779,7 +833,6 @@ export default function App() {
       }
     });
     
-    console.log(`Successfully imported ${mockVolumes.length} volumes from ${importData.compoundObject.name}`);
   };
 
   const handleToggleComponentVisibility = (componentKey, isVisible) => {
@@ -791,19 +844,16 @@ export default function App() {
 
   // Mesh panel handlers
   const handleMeshValidate = (meshData) => {
-    console.log('Mesh validated:', meshData);
     // In real implementation, this would save mesh data to the volume
   };
 
   // Computation panel handlers
   const handleComputationComplete = (results) => {
-    console.log('Computation completed:', results);
     // In real implementation, this would store results and update UI
   };
 
   // Generate scene panel handlers
   const handleSceneGenerated = (files) => {
-    console.log('Scene files generated:', files);
     // In real implementation, this would handle file downloads
   };
 
@@ -831,6 +881,8 @@ export default function App() {
       // Clear from state
       setExistingVolumes([]);
       setExistingSensors([]);
+      setExistingCompositions([]);
+      setExistingSpectra([]);
       setHasObjects(false);
       setSelectedGeometry(null);
       setHasSelectedObject(false);
@@ -840,7 +892,6 @@ export default function App() {
         window.clearSavedScene();
       }
       
-      console.log('All objects cleared from scene');
     }
   };
 
@@ -986,13 +1037,12 @@ export default function App() {
         setExistingSpectra(sceneData.spectra);
       }
       
-      // Load component visibility settings
-      if (sceneData.settings && sceneData.settings.componentVisibility) {
-        setComponentVisibility(sceneData.settings.componentVisibility);
-      }
+      // Preserve current UI state instead of loading saved component visibility
+      // This prevents the directory watcher from disappearing and rotation sliders from appearing
+      // when loading projects. Users can manually adjust UI layout as needed.
       
-      // Load selected tool
-      if (sceneData.settings && sceneData.settings.selectedTool) {
+      // Only load selected tool if it's different from current
+      if (sceneData.settings && sceneData.settings.selectedTool && sceneData.settings.selectedTool !== selectedTool) {
         setSelectedTool(sceneData.settings.selectedTool);
       }
  } catch (error) {
@@ -1003,6 +1053,17 @@ export default function App() {
   // Function to load data from localStorage and sync with existingVolumes
   const loadFromLocalStorage = () => {
     try {
+      // Check if scene was explicitly cleared in a previous session
+      const sceneCleared = localStorage.getItem('mercurad_scene_cleared') === 'true';
+      if (sceneCleared) {
+        console.log('Scene restoration skipped - scene was explicitly cleared');
+        localStorage.removeItem('mercurad_scene_cleared');
+        return;
+      }
+      
+      // Set a flag to prevent duplicate additions during restoration
+      window.isRestoringFromLocalStorage = true;
+      
       const savedData = localStorage.getItem('mercurad_scene');
       if (!savedData) return;
       
@@ -1035,15 +1096,16 @@ export default function App() {
           scale: geometryData.scale
         }));
         
-        // Remove duplicates based on name and position
+        // Remove duplicates based on ID (more reliable than position-based)
         const uniqueVolumes = [];
-        const seen = new Set();
+        const seenIds = new Set();
         
         volumes.forEach(volume => {
-          const key = `${volume.userData.volumeName}-${volume.position.x}-${volume.position.y}-${volume.position.z}`;
-          if (!seen.has(key)) {
-            seen.add(key);
+          if (!seenIds.has(volume.id)) {
+            seenIds.add(volume.id);
             uniqueVolumes.push(volume);
+          } else {
+            console.warn('Duplicate volume ID detected and removed:', volume.id, volume.userData?.volumeName);
           }
         });
         
@@ -1051,27 +1113,60 @@ export default function App() {
           console.log(`Removed ${volumes.length - uniqueVolumes.length} duplicate volumes`);
         }
         
+        console.log('Setting existingVolumes:', uniqueVolumes.length, 'volumes');
         setExistingVolumes(uniqueVolumes);
-        console.log(`Loaded ${uniqueVolumes.length} volumes from localStorage`);
+        
+        // Create geometries in the 3D scene (with delay to ensure ThreeScene is initialized)
+        setTimeout(() => {
+          uniqueVolumes.forEach(volume => {
+            if (window.createGeometryFromData) {
+              const objData = {
+                type: volume.type,
+                geometry: {
+                  type: volume.type,
+                  parameters: volume.userData?.geometryParameters || {}
+                },
+                position: volume.position,
+                rotation: volume.rotation,
+                scale: volume.scale,
+                userData: volume.userData,
+                volume: volume.userData,
+                visible: volume.visible !== false,
+                name: volume.name
+              };
+              
+              const geometry = window.createGeometryFromData(objData);
+              if (geometry) {
+                console.log('Restored geometry in scene:', volume.name);
+              }
+            } else {
+              console.warn('createGeometryFromData not available yet');
+            }
+          });
+        }, 200);
       }
       
       // Load compositions, sensors, and spectra from localStorage
       if (sceneData.compositions && Array.isArray(sceneData.compositions)) {
         setExistingCompositions(sceneData.compositions);
-        console.log(`Loaded ${sceneData.compositions.length} compositions from localStorage`);
       }
       
       if (sceneData.sensors && Array.isArray(sceneData.sensors)) {
         setExistingSensors(sceneData.sensors);
-        console.log(`Loaded ${sceneData.sensors.length} sensors from localStorage`);
       }
       
       if (sceneData.spectra && Array.isArray(sceneData.spectra)) {
         setExistingSpectra(sceneData.spectra);
-        console.log(`Loaded ${sceneData.spectra.length} spectra from localStorage`);
       }
+      
+      // Clear the restoration flag
+      setTimeout(() => {
+        window.isRestoringFromLocalStorage = false;
+      }, 500);
     } catch (error) {
       console.error('Error loading from localStorage:', error);
+      // Clear the restoration flag even on error
+      window.isRestoringFromLocalStorage = false;
     }
   };
 
@@ -1115,6 +1210,7 @@ export default function App() {
 
   // Keep hasObjects in sync with existingVolumes
   useEffect(() => {
+    console.log('existingVolumes changed:', existingVolumes.length, 'volumes');
     setHasObjects(existingVolumes.length > 0);
   }, [existingVolumes]);
 
@@ -1134,11 +1230,9 @@ export default function App() {
           onAxisChange={handleAxisChange}
           onViewModeChange={handleViewModeChange}
           onGeometryDeleted={(geometryId) => {
-            console.log('Geometry deleted with ID:', geometryId);
             // Remove the geometry from the existing volumes list
             setExistingVolumes(prev => {
               const updated = prev.filter(volume => volume.id !== geometryId);
-              console.log('Updated volumes after deletion:', updated);
               return updated;
             });
             // Update object states - will be updated when existingVolumes changes
@@ -1156,6 +1250,28 @@ export default function App() {
             ));
           }}
           onGeometryChanged={handleGeometryChanged}
+          onGeometryCreated={(mesh) => {
+            // Skip if we're restoring from localStorage to prevent duplicates
+            if (window.isRestoringFromLocalStorage) {
+              console.log('Skipping onGeometryCreated during restoration');
+              return;
+            }
+            
+            // Handle geometry created via drag and drop
+            setHasObjects(true);
+            
+            // Add to existing volumes list for geometry panel and directory
+            if (mesh && mesh.userData) {
+              const volumeData = {
+                id: mesh.userData.id || Date.now(),
+                type: mesh.userData.type,
+                position: mesh.position,
+                visible: mesh.userData.visible !== false, // Include visibility state
+                userData: mesh.userData
+              };
+              setExistingVolumes(prev => [...prev, volumeData]);
+            }
+          }}
           existingCompositions={existingCompositions}
           existingSensors={existingSensors}
           existingSpectra={existingSpectra}
@@ -1179,6 +1295,7 @@ export default function App() {
             onShowGeometryPanel={handleShowGeometryPanel}
           onShowSensorPanel={handleShowSensorPanel}
           onShowCompoundVolume={handleShowCompoundVolume}
+          onShowPhysicsPanel={() => setShowPhysicsPanel(true)}
           onToggleComponentVisibility={handleToggleComponentVisibility}
           sceneData={getSceneData()}
           selectedVolume={selectedGeometry}
@@ -1210,9 +1327,6 @@ export default function App() {
             existingSensors={existingSensors}
             existingCompositions={existingCompositions}
             existingSpectra={existingSpectra}
-            dockedComponents={dockedComponents}
-            onDockComponent={handleDockComponent}
-            onUndockComponent={handleUndockComponent}
             onRenameObject={async (id, newName) => {
               try {
                 // Update the object name in the 3D scene
@@ -1252,7 +1366,6 @@ export default function App() {
                       
                       // Save back to localStorage
                       localStorage.setItem('mercurad_scene', JSON.stringify(updatedSceneData));
-                      console.log(`Volume name updated in localStorage: ${newName}`);
                     }
                   }
                 } catch (error) {
@@ -1263,7 +1376,6 @@ export default function App() {
                 if (currentProject && apiService) {
                   try {
                     await apiService.updateVolumeName(currentProject.id, id, newName);
-                    console.log(`Volume name updated in backend: ${newName}`);
                   } catch (error) {
                     console.error('Failed to update volume name in backend:', error);
                     // Don't show error to user as the frontend update already succeeded
@@ -1273,21 +1385,63 @@ export default function App() {
                 console.error('Error updating volume name:', error);
               }
             }}
-            onDeleteObject={(id) => {
-              // Remove from 3D scene first
-              if (window.removeGeometry) {
-                const success = window.removeGeometry(id);
-                if (success) {
-                  // The onGeometryDeleted callback will handle updating existingVolumes
-                  console.log(`Geometry ${id} deleted from 3D scene`);
-                } else {
-                  console.warn(`Failed to delete geometry ${id} from 3D scene`);
-                  // Fallback: remove from volumes list manually
+            onDeleteObject={(id, objectType) => {
+              
+              // Handle different object types
+              switch (objectType) {
+                case 'composition':
+                  // Remove from compositions list
+                  setExistingCompositions(prev => prev.filter(comp => comp.id !== id));
+                  // Sync with localStorage
+                  if (window.handleCompositionDeleted) {
+                    window.handleCompositionDeleted(id);
+                  }
+                  break;
+                  
+                case 'source':
+                  // Remove from sources list (sources are volumes with isSource: true)
                   setExistingVolumes(prev => prev.filter(volume => volume.id !== id));
-                }
-              } else {
-                // Fallback: remove from volumes list manually
-                setExistingVolumes(prev => prev.filter(volume => volume.id !== id));
+                  // Sync with localStorage
+                  if (window.handleSourceDeleted) {
+                    window.handleSourceDeleted(id);
+                  }
+                  break;
+                  
+                case 'sensor':
+                  // Remove from sensors list
+                  setExistingSensors(prev => prev.filter(sensor => sensor.id !== id));
+                  // Sync with localStorage
+                  if (window.handleSensorDeleted) {
+                    window.handleSensorDeleted(id);
+                  }
+                  break;
+                  
+                case 'spectrum':
+                  // Remove from spectra list
+                  setExistingSpectra(prev => prev.filter(spectrum => spectrum.id !== id));
+                  // Sync with localStorage
+                  if (window.handleSpectrumDeleted) {
+                    window.handleSpectrumDeleted(id);
+                  }
+                  break;
+                  
+                case 'object':
+                default:
+                  // Handle regular geometry objects
+                  if (window.removeGeometry) {
+                    const success = window.removeGeometry(id);
+                    if (success) {
+                      // The onGeometryDeleted callback will handle updating existingVolumes
+                    } else {
+                      console.warn(`Failed to delete geometry ${id} from 3D scene`);
+                      // Fallback: remove from volumes list manually
+                      setExistingVolumes(prev => prev.filter(volume => volume.id !== id));
+                    }
+                  } else {
+                    // Fallback: remove from volumes list manually
+                    setExistingVolumes(prev => prev.filter(volume => volume.id !== id));
+                  }
+                  break;
               }
             }}
             onSelectObject={(object) => {
@@ -1315,14 +1469,44 @@ export default function App() {
                 const success = window.toggleGeometryVisibility(id, visible);
                 if (success) {
                   // The onGeometryVisibilityChanged callback will handle updating existingVolumes
-                  console.log(`Geometry ${id} visibility set to ${visible}`);
                 } else {
                   console.warn(`Failed to toggle geometry ${id} visibility`);
                 }
               }
             }}
             onClearAllObjects={handleClearAllObjects}
+            onShowProperties={(item) => {
+              // Show comprehensive properties for the selected object
+              if (item.data) {
+                // Set the volume data for the properties panel
+                setSelectedVolumeData(item.data);
+                setShowVolumeProperties(true);
+                
+                // Also set selected geometry for the geometry panel if needed
+                setSelectedGeometry({
+                  type: item.objectType || item.type,
+                  id: item.id,
+                  name: item.name,
+                  position: item.data.position,
+                  rotation: item.data.rotation,
+                  scale: item.data.scale,
+                  userData: item.data.userData
+                });
+              } else {
+                // For other items, show appropriate panel
+              }
+            }}
             selectedObjectId={selectedGeometry?.id}
+          />
+        )}
+
+        {/* Docking Connector - Handles docking behind Directory */}
+        {componentVisibility.directory && (
+          <DockingConnector
+            layoutPosition={layoutConfig.directory}
+            dockedComponents={dockedComponents}
+            onDockComponent={handleDockComponent}
+            onUndockComponent={handleUndockComponent}
           />
         )}
 
@@ -1346,7 +1530,7 @@ export default function App() {
         )}
 
         {/* Layout Swap Button - Top Right */}
-        <div className="absolute top-20 right-2 sm:right-4 pointer-events-auto z-50">
+        <div className="absolute top-20 right-2 sm:right-4 pointer-events-auto z-30">
           <button
             onClick={cycleLayout}
             className="bg-neutral-700 hover:bg-neutral-600 text-white p-2 rounded-lg shadow-lg transition-colors duration-200 flex items-center space-x-2"
@@ -1425,6 +1609,45 @@ export default function App() {
           existingVolumes={existingVolumes}
           existingCompositions={existingCompositions}
           existingSpectra={existingSpectra}
+        />
+
+        {/* Volume Properties Panel - Draggable */}
+        <VolumePropertiesPanel
+          isVisible={showVolumeProperties}
+          onClose={() => setShowVolumeProperties(false)}
+          volumeData={selectedVolumeData}
+          onEdit={() => {
+            // Open geometry panel for editing
+            setShowGeometryPanel(true);
+            setShowVolumeProperties(false);
+          }}
+          onDelete={() => {
+            // Delete the volume
+            if (selectedVolumeData && selectedVolumeData.userData) {
+              if (window.removeGeometry) {
+                window.removeGeometry(selectedVolumeData.userData.id);
+              }
+            }
+            setShowVolumeProperties(false);
+          }}
+          onCopy={() => {
+            // Copy volume properties to clipboard
+            if (selectedVolumeData) {
+              const propertiesText = JSON.stringify(selectedVolumeData, null, 2);
+              navigator.clipboard.writeText(propertiesText);
+            }
+          }}
+        />
+
+        {/* Physics Control Panel - Draggable */}
+        <PhysicsControlPanel
+          isVisible={showPhysicsPanel}
+          onClose={handlePhysicsPanelClose}
+          onStartSimulation={handleStartPhysicsSimulation}
+          onStopSimulation={handleStopPhysicsSimulation}
+          simulationResults={physicsSimulationResults}
+          isSimulating={isPhysicsSimulating}
+          simulationProgress={physicsSimulationProgress}
         />
 
         {/* Contextual Help - Draggable floating component */}

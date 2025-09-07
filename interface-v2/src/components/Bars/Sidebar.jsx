@@ -39,7 +39,6 @@ export default function Sidebar({ selectedTool, onToolSelect, cameraMode }) {
   const handleToolClick = (toolId) => {
     const newSelectedTool = selectedTool === toolId ? null : toolId;
     onToolSelect(newSelectedTool);
-    console.log(`Selected tool: ${toolId}`);
   };
 
   return (

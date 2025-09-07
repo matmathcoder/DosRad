@@ -475,6 +475,25 @@ class ApiService {
       })),
     };
   }
+
+  // Complete Project Management
+  async createCompleteProject(projectData) {
+    return await this.request('/projects/complete/', {
+      method: 'POST',
+      body: JSON.stringify(projectData),
+    });
+  }
+
+  async getCompleteProject(projectId) {
+    return await this.request(`/projects/complete/${projectId}/`);
+  }
+
+  async updateCompleteProject(projectId, projectData) {
+    return await this.request(`/projects/complete/${projectId}/update/`, {
+      method: 'PUT',
+      body: JSON.stringify(projectData),
+    });
+  }
 }
 
 // Create singleton instance

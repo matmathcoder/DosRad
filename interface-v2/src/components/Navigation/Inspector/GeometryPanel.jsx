@@ -550,7 +550,6 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
     if (window.updateGeometryCoordinates) {
       const success = window.updateGeometryCoordinates(selectedGeometry.id, coordinates);
       if (success) {
-        console.log('Geometry coordinates updated successfully');
       } else {
         console.error('Failed to update geometry coordinates');
       }
@@ -565,7 +564,6 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
       };
       const success = window.updateGeometryPosition(selectedGeometry.id, newPosition);
       if (success) {
-        console.log('Geometry position updated successfully');
       } else {
         console.error('Failed to update geometry position');
       }
@@ -597,7 +595,6 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
 
       const success = window.updateGeometryScale(selectedGeometry.id, newScale);
       if (success) {
-        console.log('Geometry scale updated successfully');
       } else {
         console.error('Failed to update geometry scale');
       }

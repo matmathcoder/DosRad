@@ -8,6 +8,7 @@ export default class PersistenceManager {
     this.modules = null;
     
     this.autoSaveInterval = null;
+    this.sceneCleared = false; // Flag to track if scene was explicitly cleared
   }
   
   setModules(modules) {
@@ -78,6 +79,12 @@ export default class PersistenceManager {
       };
       
       localStorage.setItem('mercurad_scene', JSON.stringify(sceneData));
+      
+      // Only remove the cleared flag when there are actually objects to save
+      // This prevents auto-save from overriding the cleared state when scene is empty
+      if (sceneData.geometries && sceneData.geometries.length > 0) {
+        localStorage.removeItem('mercurad_scene_cleared');
+      }
     } catch (error) {
       console.error('Failed to save scene:', error);
     }
@@ -116,13 +123,30 @@ export default class PersistenceManager {
   restoreGeometries(savedGeometries) {
     if (!savedGeometries || !this.refs.sceneGroupRef.current) return;
     
-    // Clear existing geometries
+    // Clear existing geometries and their indicators
     this.refs.geometriesRef.current.forEach(mesh => {
+      // Remove object indicators first
+      if (this.modules?.geometryManager && mesh.userData?.indicators) {
+        this.modules.geometryManager.removeObjectIndicators(mesh);
+      }
+      
       this.refs.sceneGroupRef.current.remove(mesh);
       if (mesh.geometry) mesh.geometry.dispose();
       if (mesh.material) mesh.material.dispose();
     });
     this.refs.geometriesRef.current.length = 0;
+    
+    // Additional cleanup: Remove any orphaned indicators from the scene
+    // This handles cases where indicators might not be properly cleaned up
+    const sceneChildren = this.refs.sceneGroupRef.current.children.slice();
+    sceneChildren.forEach(child => {
+      if (child.userData?.isIndicator) {
+        console.log('Removing orphaned indicator from scene');
+        this.refs.sceneGroupRef.current.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      }
+    });
     
     // Restore saved geometries using the same method as createGeometryFromData
     savedGeometries.forEach(geometryData => {
@@ -315,9 +339,23 @@ export default class PersistenceManager {
   }
   
   loadScene() {
+    // Check if scene was explicitly cleared in a previous session
+    const sceneCleared = localStorage.getItem('mercurad_scene_cleared') === 'true';
+    
+    // Don't restore if scene was explicitly cleared
+    if (this.sceneCleared || sceneCleared) {
+      console.log('Scene restoration skipped - scene was explicitly cleared');
+      // Remove the cleared flag since we've acknowledged it
+      localStorage.removeItem('mercurad_scene_cleared');
+      return;
+    }
+    
     const savedScene = this.loadSceneFromLocalStorage();
     if (savedScene) {
+      console.log(`Restoring scene with ${savedScene.geometries?.length || 0} geometries`);
       this.restoreSceneState(savedScene);
+    } else {
+      console.log('No saved scene found to restore');
     }
   }
   
@@ -328,8 +366,149 @@ export default class PersistenceManager {
   clearScene() {
     try {
       localStorage.removeItem('mercurad_scene');
+      // Set a flag in localStorage to prevent restoration on next load
+      localStorage.setItem('mercurad_scene_cleared', 'true');
+      this.sceneCleared = true; // Mark that scene was explicitly cleared
     } catch (error) {
       console.error('Failed to clear saved scene:', error);
+    }
+  }
+  
+  removeGeometryFromLocalStorage(geometryId) {
+    try {
+      const savedData = localStorage.getItem('mercurad_scene');
+      if (!savedData) {
+        console.log(`No saved data found for geometry ${geometryId}`);
+        return;
+      }
+      
+      const sceneData = JSON.parse(savedData);
+      if (sceneData.geometries) {
+        // Remove the geometry with the specified ID
+        const originalLength = sceneData.geometries.length;
+        sceneData.geometries = sceneData.geometries.filter(geom => geom.id !== geometryId);
+        
+        console.log(`Removing geometry ${geometryId} from localStorage. Remaining: ${sceneData.geometries.length}/${originalLength}`);
+        
+        // Only save if something was actually removed
+        if (sceneData.geometries.length < originalLength) {
+          sceneData.timestamp = Date.now();
+          localStorage.setItem('mercurad_scene', JSON.stringify(sceneData));
+          
+          // If no geometries left, mark scene as cleared
+          if (sceneData.geometries.length === 0) {
+            localStorage.setItem('mercurad_scene_cleared', 'true');
+            console.log('Scene marked as cleared - no geometries remaining');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to remove geometry from localStorage:', error);
+    }
+  }
+  
+  updateGeometryInLocalStorage(geometryId, updatedData) {
+    try {
+      const savedData = localStorage.getItem('mercurad_scene');
+      if (!savedData) return;
+      
+      const sceneData = JSON.parse(savedData);
+      if (sceneData.geometries) {
+        const geometryIndex = sceneData.geometries.findIndex(geom => geom.id === geometryId);
+        if (geometryIndex > -1) {
+          // Update the geometry data
+          sceneData.geometries[geometryIndex] = {
+            ...sceneData.geometries[geometryIndex],
+            ...updatedData,
+            timestamp: Date.now()
+          };
+          
+          sceneData.timestamp = Date.now();
+          localStorage.setItem('mercurad_scene', JSON.stringify(sceneData));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update geometry in localStorage:', error);
+    }
+  }
+  
+  removeCompositionFromLocalStorage(compositionId) {
+    try {
+      const savedData = localStorage.getItem('mercurad_scene');
+      if (!savedData) return;
+      
+      const sceneData = JSON.parse(savedData);
+      if (sceneData.compositions) {
+        const originalLength = sceneData.compositions.length;
+        sceneData.compositions = sceneData.compositions.filter(comp => comp.id !== compositionId);
+        
+        if (sceneData.compositions.length < originalLength) {
+          sceneData.timestamp = Date.now();
+          localStorage.setItem('mercurad_scene', JSON.stringify(sceneData));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to remove composition from localStorage:', error);
+    }
+  }
+  
+  removeSourceFromLocalStorage(sourceId) {
+    try {
+      const savedData = localStorage.getItem('mercurad_scene');
+      if (!savedData) return;
+      
+      const sceneData = JSON.parse(savedData);
+      if (sceneData.sources) {
+        const originalLength = sceneData.sources.length;
+        sceneData.sources = sceneData.sources.filter(source => source.id !== sourceId);
+        
+        if (sceneData.sources.length < originalLength) {
+          sceneData.timestamp = Date.now();
+          localStorage.setItem('mercurad_scene', JSON.stringify(sceneData));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to remove source from localStorage:', error);
+    }
+  }
+  
+  removeSensorFromLocalStorage(sensorId) {
+    try {
+      const savedData = localStorage.getItem('mercurad_scene');
+      if (!savedData) return;
+      
+      const sceneData = JSON.parse(savedData);
+      if (sceneData.sensors) {
+        const originalLength = sceneData.sensors.length;
+        sceneData.sensors = sceneData.sensors.filter(sensor => sensor.id !== sensorId);
+        
+        if (sceneData.sensors.length < originalLength) {
+          sceneData.timestamp = Date.now();
+          localStorage.setItem('mercurad_scene', JSON.stringify(sceneData));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to remove sensor from localStorage:', error);
+    }
+  }
+  
+  removeSpectrumFromLocalStorage(spectrumId) {
+    try {
+      const savedData = localStorage.getItem('mercurad_scene');
+      if (!savedData) return;
+      
+      const sceneData = JSON.parse(savedData);
+      if (sceneData.spectra) {
+        const originalLength = sceneData.spectra.length;
+        sceneData.spectra = sceneData.spectra.filter(spectrum => spectrum.id !== spectrumId);
+        
+        if (sceneData.spectra.length < originalLength) {
+          sceneData.timestamp = Date.now();
+          localStorage.setItem('mercurad_scene', JSON.stringify(sceneData));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to remove spectrum from localStorage:', error);
     }
   }
   

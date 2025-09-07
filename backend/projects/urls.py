@@ -72,4 +72,9 @@ urlpatterns = [
     # Monte-Carlo computation URLs
     path('<int:project_id>/start-computation/', views.start_computation, name='start-computation'),
     path('<int:project_id>/computation-results/', views.get_computation_results, name='get-computation-results'),
+    
+    # Complete project management
+    path('complete/', views.CompleteProjectCreateView.as_view(), name='complete-project-create'),
+    path('complete/<int:project_id>/', views.CompleteProjectRetrieveView.as_view(), name='complete-project-retrieve'),
+    path('complete/<int:project_id>/update/', views.CompleteProjectUpdateView.as_view(), name='complete-project-update'),
 ]

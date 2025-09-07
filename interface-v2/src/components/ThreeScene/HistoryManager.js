@@ -16,22 +16,24 @@ export default class HistoryManager {
   saveToHistory() {
     if (this.isRestoringHistory) return; // Don't save history during undo/redo
     
-    // Create a snapshot of the current scene state
-    const snapshot = {
-      timestamp: Date.now(),
-      geometries: this.refs.geometriesRef.current.map(mesh => ({
-        id: mesh.userData.id,
-        type: mesh.userData.type,
-        position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
-        rotation: { x: mesh.rotation.x, y: mesh.rotation.y, z: mesh.rotation.z },
-        scale: { x: mesh.scale.x, y: mesh.scale.y, z: mesh.scale.z },
-        material: {
-          color: mesh.material.color.getHex(),
-          opacity: mesh.material.opacity,
-          transparent: mesh.material.transparent
-        },
-        userData: { ...mesh.userData }
-      })),
+      // Create a snapshot of the current scene state
+      const snapshot = {
+        timestamp: Date.now(),
+        geometries: this.refs.geometriesRef.current.map(mesh => ({
+          id: mesh.userData.id,
+          type: mesh.userData.type,
+          position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
+          rotation: { x: mesh.rotation.x, y: mesh.rotation.y, z: mesh.rotation.z },
+          scale: { x: mesh.scale.x, y: mesh.scale.y, z: mesh.scale.z },
+          material: {
+            color: mesh.material.color.getHex(),
+            opacity: mesh.material.opacity,
+            transparent: mesh.material.transparent
+          },
+          // Save geometry parameters for proper restoration
+          geometryParameters: this.getGeometryParameters(mesh),
+          userData: { ...mesh.userData }
+        })),
       camera: this.getCameraSnapshot(),
       sceneRotation: this.getSceneRotationSnapshot(),
       viewSettings: this.getViewSettingsSnapshot()
@@ -81,6 +83,76 @@ export default class HistoryManager {
     };
   }
   
+  getGeometryParameters(mesh) {
+    // Extract geometry parameters based on the geometry type
+    const geometry = mesh.geometry;
+    const userData = mesh.userData;
+    
+    // Check if we have custom parameters in userData first
+    if (userData.parameters) {
+      return userData.parameters;
+    }
+    
+    // Extract parameters from the actual geometry
+    switch (mesh.userData.type) {
+      case 'cube':
+        if (geometry.parameters) {
+          return {
+            width: geometry.parameters.width,
+            height: geometry.parameters.height,
+            depth: geometry.parameters.depth
+          };
+        }
+        break;
+      case 'sphere':
+        if (geometry.parameters) {
+          return {
+            radius: geometry.parameters.radius,
+            widthSegments: geometry.parameters.widthSegments,
+            heightSegments: geometry.parameters.heightSegments
+          };
+        }
+        break;
+      case 'cylinder':
+        if (geometry.parameters) {
+          return {
+            radiusTop: geometry.parameters.radiusTop,
+            radiusBottom: geometry.parameters.radiusBottom,
+            height: geometry.parameters.height,
+            radialSegments: geometry.parameters.radialSegments
+          };
+        }
+        break;
+      case 'cone':
+        if (geometry.parameters) {
+          return {
+            radius: geometry.parameters.radius,
+            height: geometry.parameters.height,
+            radialSegments: geometry.parameters.radialSegments
+          };
+        }
+        break;
+    }
+    
+    // Fallback to default parameters if we can't extract them
+    return this.getDefaultGeometryParameters(mesh.userData.type);
+  }
+  
+  getDefaultGeometryParameters(type) {
+    switch (type) {
+      case 'cube':
+        return { width: 1, height: 1, depth: 1 };
+      case 'sphere':
+        return { radius: 0.5, widthSegments: 32, heightSegments: 32 };
+      case 'cylinder':
+        return { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 32 };
+      case 'cone':
+        return { radius: 0.5, height: 1, radialSegments: 32 };
+      default:
+        return {};
+    }
+  }
+  
   restoreFromHistory(snapshot) {
     if (!snapshot) return;
     
@@ -109,19 +181,39 @@ export default class HistoryManager {
       snapshot.geometries.forEach(geomData => {
         let geometry;
         
-        // Create geometry based on type
+        // Use saved geometry parameters or fallback to defaults
+        const params = geomData.geometryParameters || this.getDefaultGeometryParameters(geomData.type);
+        
+        // Create geometry based on type with saved parameters
         switch (geomData.type) {
           case 'cube':
-            geometry = new THREE.BoxGeometry(1, 1, 1);
+            geometry = new THREE.BoxGeometry(
+              params.width || 1, 
+              params.height || 1, 
+              params.depth || 1
+            );
             break;
           case 'sphere':
-            geometry = new THREE.SphereGeometry(0.5, 32, 32);
+            geometry = new THREE.SphereGeometry(
+              params.radius || 0.5, 
+              params.widthSegments || 32, 
+              params.heightSegments || 32
+            );
             break;
           case 'cylinder':
-            geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32);
+            geometry = new THREE.CylinderGeometry(
+              params.radiusTop || 0.5, 
+              params.radiusBottom || 0.5, 
+              params.height || 1, 
+              params.radialSegments || 32
+            );
             break;
           case 'cone':
-            geometry = new THREE.ConeGeometry(0.5, 1, 32);
+            geometry = new THREE.ConeGeometry(
+              params.radius || 0.5, 
+              params.height || 1, 
+              params.radialSegments || 32
+            );
             break;
           default:
             geometry = new THREE.BoxGeometry(1, 1, 1);
@@ -143,8 +235,11 @@ export default class HistoryManager {
         mesh.rotation.set(geomData.rotation.x, geomData.rotation.y, geomData.rotation.z);
         mesh.scale.set(geomData.scale.x, geomData.scale.y, geomData.scale.z);
         
-        // Restore userData
+        // Restore userData and ensure originalColor is preserved
         mesh.userData = { ...geomData.userData };
+        if (!mesh.userData.originalColor) {
+          mesh.userData.originalColor = geomData.material.color;
+        }
         
         mesh.castShadow = true;
         mesh.receiveShadow = true;

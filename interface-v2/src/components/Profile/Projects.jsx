@@ -105,9 +105,11 @@ export default function Projects({ user, onClose, onLoadProject }) {
           break;
         case 'load':
           if (onLoadProject) {
-            onLoadProject(projectId);
+            // Load complete project data using the new API
+            const completeProject = await apiService.getCompleteProject(projectId);
+            onLoadProject(completeProject);
           }
-       break;
+          break;
       }
       fetchProjects(); // Refresh projects list
     } catch (error) {

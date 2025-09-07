@@ -22,7 +22,7 @@ from .serializers import (
     CompoundObjectImportSerializer, CompoundObjectImportRequestSerializer,
     CompoundObjectExportSerializer, MeshConfigurationSerializer, 
     ComputationConfigurationSerializer, ComputationResultSerializer, 
-    ToleranceConfigurationSerializer
+    ToleranceConfigurationSerializer, CompleteProjectSerializer, CompleteProjectCreateSerializer
 )
 
 
@@ -988,3 +988,71 @@ def get_computation_results(request, project_id):
             {'error': f'Failed to get computation results: {str(e)}'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+class CompleteProjectCreateView(APIView):
+    """Create a complete project with all scene data"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        """Create a complete project with all related objects"""
+        try:
+            serializer = CompleteProjectCreateSerializer(data=request.data, context={'request': request})
+            if serializer.is_valid():
+                project = serializer.save()
+                
+                # Return the complete project data
+                complete_serializer = CompleteProjectSerializer(project)
+                return Response(complete_serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to create complete project: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CompleteProjectUpdateView(APIView):
+    """Update a complete project with all scene data"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def put(self, request, project_id):
+        """Update a complete project with all related objects"""
+        try:
+            project = get_object_or_404(Project, id=project_id, user=request.user)
+            serializer = CompleteProjectCreateSerializer(project, data=request.data, context={'request': request})
+            
+            if serializer.is_valid():
+                updated_project = serializer.save()
+                
+                # Return the complete project data
+                complete_serializer = CompleteProjectSerializer(updated_project)
+                return Response(complete_serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to update complete project: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CompleteProjectRetrieveView(APIView):
+    """Retrieve a complete project with all scene data"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, project_id):
+        """Retrieve a complete project with all related objects"""
+        try:
+            project = get_object_or_404(Project, id=project_id, user=request.user)
+            serializer = CompleteProjectSerializer(project)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to retrieve complete project: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

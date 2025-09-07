@@ -68,27 +68,23 @@ export default function BottomBar({ onZoomChange, onLanguageChange, onUnitChange
     setCurrentLanguage(language.code);
     setShowLanguageDropdown(false);
     onLanguageChange && onLanguageChange(language);
-    console.log(`Language changed to: ${language.name}`);
   };
 
   const handleUnitSelect = (unit) => {
     setSelectedUnit(unit.code);
     setShowUnitDropdown(false);
     onUnitChange && onUnitChange(unit);
-    console.log(`Unit changed to: ${unit.name}`);
   };
 
   const handleSceneModeToggle = () => {
     const newMode = sceneMode === 'nominal' ? 'expert' : 'nominal';
     setSceneMode(newMode);
     onModeChange && onModeChange({ type: 'scene', mode: newMode });
-    console.log(`Scene mode changed to: ${newMode}`);
   };
 
   const handleExpertModeToggle = () => {
     setIsExpertMode(!isExpertMode);
     onModeChange && onModeChange({ type: 'expert', enabled: !isExpertMode });
-    console.log(`Expert mode ${!isExpertMode ? 'enabled' : 'disabled'}`);
   };
 
   // Close dropdowns when clicking outside

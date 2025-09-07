@@ -107,12 +107,15 @@ export default function ContextMenu({
     onClose();
   };
 
-  if (!isVisible || !selectedObject) return null;
+  if (!isVisible || !selectedObject) {
+    return null;
+  }
+
 
   return (
     <div 
       ref={menuRef}
-      className="bg-neutral-800 rounded-lg shadow-2xl border border-neutral-600 w-48 pointer-events-auto absolute z-50"
+      className="bg-neutral-800 rounded-lg shadow-2xl border border-neutral-600 w-48 pointer-events-auto fixed z-[100]"
       style={{
         left: `${menuPosition.x}px`,
         top: `${menuPosition.y}px`,
