@@ -15,7 +15,7 @@ import {
   Camera,
   MousePointer
 } from 'lucide-react';
-import collisionDetector from '../utils/collisionDetection';
+import collisionDetector from '../../utils/collisionDetection';
 
 export default function ContextualHelp({ selectedTool, hasSelectedObject, hasObjects, cameraMode, windowSize }) {
   const [isMinimized, setIsMinimized] = useState(false);

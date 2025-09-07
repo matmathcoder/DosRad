@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Eye, EyeOff, LogIn, Move } from 'lucide-react';
-import apiService from '../../services/api';
+import apiService from '../../../services/api';
 
 export default function Login({ onClose, onSwitchToSignup, onLoginSuccess }) {
   const [formData, setFormData] = useState({

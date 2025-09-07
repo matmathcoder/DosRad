@@ -1,27 +1,18 @@
-import React, { useState } from 'react';
-import { ChevronRight, Eye, Grid3X3, Frame, HelpCircle, Circle, CircleDashed, CircleDotDashed, CircleDot, LogIn, UserPlus, Laptop, Cloud, HardDriveUpload, CloudUpload, CirclePlus, Image, FileBox, Printer } from 'lucide-react';
-import Login from '../Profile/Login';
-import Signup from '../Profile/Signup';
-import Profile from '../Profile/Profile';
-import { useAuth } from '../../contexts/AuthContext';
-import { exportMultipleObjectsToOBJ, downloadOBJ } from '../../utils/objExporter';
-import MeshPanel from '../Navigation/Edit/VolumeForm/MeshPanel';
-import ComputationPanel from '../Navigation/Scene/ComputationPanel';
-import GenerateScenePanel from '../Navigation/Scene/GenerateScenePanel';
-import CompositionsInspectorPanel from '../Navigation/Inspector/CompositionsInspectorPanel';
-import SourcesInspectorPanel from '../Navigation/Inspector/SourcesInspectorPanel';
-import SensorsInspectorPanel from '../Navigation/Inspector/SensorsInspectorPanel';
-import CompositionPanel from '../Navigation/Edit/VolumeForm/CompositionPanel';
-import SensorPanel from '../Navigation/Edit/Insert/SensorPanel';
-import CompoundVolume from '../Navigation/Edit/Insert/CompoundVolume';
+import { useAuth } from '../../../contexts/AuthContext';
+import { exportMultipleObjectsToOBJ, downloadOBJ } from '../../../utils/objExporter';
+import { visibilityMap } from './NavigationData';
 
-export default function Navigation({ 
-  onShowVolumeForm, 
-  onAxisChange, 
-  onViewModeChange, 
-  onMaterialChange, 
-  onToggleHelp, 
-  onViewMenuAction, 
+/**
+ * Custom hook for handling navigation actions and file operations
+ * Contains all the complex handler functions
+ */
+export default function useNavigationHandlers({
+  sceneData,
+  onShowVolumeForm,
+  onAxisChange,
+  onViewModeChange,
+  onMaterialChange,
+  onViewMenuAction,
   onShowGeometryPanel,
   onShowSensorPanel,
   onShowCompoundVolume,
@@ -33,137 +24,19 @@ export default function Navigation({
   onCreateNewProject,
   onExportImage,
   onToggleComponentVisibility,
-  sceneData,
-  selectedVolume,
   onMeshValidate,
   onComputationComplete,
   onSceneGenerated,
-  // Inspector panel props
   onShowCompositionsInspector,
   onShowSourcesInspector,
   onShowSensorsInspector,
-  compositions = [],
-  sources = [],
-  sensors = [],
-  // Creation panel props
   onShowCompositionPanel,
-  existingCompositions = [],
-  existingSensors = []
+  state,
+  actions
 }) {
-  const [activeDropdown, setActiveDropdown] = useState(null);
-  const [activeSubDropdown, setActiveSubDropdown] = useState(null);
-  const [activeAxis, setActiveAxis] = useState('Z');
-  const [materialMode, setMaterialMode] = useState('solid');
-  
-  // Component visibility state
-  const [componentVisibility, setComponentVisibility] = useState({
-    contextualHelp: false,
-    helpOverlay: true,
-    geometrySelector: true,
-    volumeForm: false,
-    sensorPanel: false,
-    compoundVolume: false,
-    directory: true,
-    rotationSliders: false,
-    debugPanel: false
-  });
-  
-  // Authentication state
-  const [showLogin, setShowLogin] = useState(false);
-  const [showSignup, setShowSignup] = useState(false);
   const { user, login, signup, logout } = useAuth();
 
-  // Panel visibility states
-  const [showMeshPanel, setShowMeshPanel] = useState(false);
-  const [showComputationPanel, setShowComputationPanel] = useState(false);
-  const [showGenerateScenePanel, setShowGenerateScenePanel] = useState(false);
-  
-  // Inspector panel visibility states
-  const [showCompositionsInspector, setShowCompositionsInspector] = useState(false);
-  const [showSourcesInspector, setShowSourcesInspector] = useState(false);
-  const [showSensorsInspector, setShowSensorsInspector] = useState(false);
-  
-  // Creation panel visibility states
-  const [showCompositionPanel, setShowCompositionPanel] = useState(false);
-  const [showSensorPanel, setShowSensorPanel] = useState(false);
-  const [showCompoundVolume, setShowCompoundVolume] = useState(false);
-
-  const menuStructure = {
-    File: [
-      'Save to Computer',
-      'Save to Cloud',
-      'Load from Computer',
-      'Load from Cloud',
-      'Create New Project',
-      'Export (Image)',
-      'Export (OBJ)',
-      'Print',
-      'Quit Mercurad'
-    ],
-    Edit: [
-      'New Volume',
-      'Select Volume',
-      {
-        name: 'Insert',
-        submenu: ['Compound Volume', 'Sensor']
-      },
-      'Remove'
-    ],
-    Inspector: [
-      'Geometry',
-      'Compositions',
-      'Sources',
-      'Sensor',
-      {
-        name: 'Calculation Results',
-        submenu: [
-          {
-            name: 'Nom Config',
-            submenu: ['Simple', 'Complete']
-          },
-          'Min Config',
-          'Max Config'
-        ]
-      }
-    ],
-    Scene: [
-      'Generate Scene...',
-      'Start Computation',
-      'Physics Simulation'
-    ],
-    Mesh: [
-      'Configure Mesh...'
-    ],
-    View: [
-      'Mesh',
-      'Cut Plane',
-      'Hide Solid Angle Lines',
-      'Add Solid Angle Lines...',
-      'Normal View',
-      '---',
-      'Contextual Help',
-      'Help Overlay',
-      'Geometry Selector',
-      'Volume Form',
-      'Sensor Panel',
-      'Compound Volume',
-      'Directory',
-      'Rotation Sliders',
-      'Debug Panel'
-    ]
-  };
-
-  const handleMenuClick = (menuName) => {
-    setActiveDropdown(activeDropdown === menuName ? null : menuName);
-    setActiveSubDropdown(null);
-  };
-
-  const handleSubMenuClick = (subMenuName) => {
-    setActiveSubDropdown(activeSubDropdown === subMenuName ? null : subMenuName);
-  };
-
   const handleItemClick = (item) => {
-    
     // Handle File menu actions
     switch (item) {
       case 'Save to Computer':
@@ -202,7 +75,7 @@ export default function Navigation({
         }
         break;
       case 'Sensor':
-        setShowSensorsInspector(true);
+        actions.setShowSensorsInspector(true);
         break;
       case 'Compound Volume':
         if (onShowCompoundVolume) {
@@ -210,10 +83,10 @@ export default function Navigation({
         }
         break;
       case 'Generate Scene...':
-        setShowGenerateScenePanel(true);
+        actions.setShowGenerateScenePanel(true);
         break;
       case 'Start Computation':
-        setShowComputationPanel(true);
+        actions.setShowComputationPanel(true);
         break;
       case 'Physics Simulation':
         if (onShowPhysicsPanel) {
@@ -221,13 +94,13 @@ export default function Navigation({
         }
         break;
       case 'Configure Mesh...':
-        setShowMeshPanel(true);
+        actions.setShowMeshPanel(true);
         break;
       case 'Compositions':
-        setShowCompositionsInspector(true);
+        actions.setShowCompositionsInspector(true);
         break;
       case 'Sources':
-        setShowSourcesInspector(true);
+        actions.setShowSourcesInspector(true);
         break;
       default:
         // Handle View menu actions
@@ -256,25 +129,10 @@ export default function Navigation({
           return; // Don't close dropdown for separator
         }
         
-        const visibilityMap = {
-          'Contextual Help': 'contextualHelp',
-          'Help Overlay': 'helpOverlay',
-          'Geometry Selector': 'geometrySelector',
-          'Volume Form': 'volumeForm',
-          'Sensor Panel': 'sensorPanel',
-          'Compound Volume': 'compoundVolume',
-          'Directory': 'directory',
-          'Rotation Sliders': 'rotationSliders',
-          'Debug Panel': 'debugPanel'
-        };
-        
         if (visibilityMap[item]) {
           const componentKey = visibilityMap[item];
-          const newVisibility = !componentVisibility[componentKey];
-          setComponentVisibility(prev => ({
-            ...prev,
-            [componentKey]: newVisibility
-          }));
+          const newVisibility = !state.componentVisibility[componentKey];
+          actions.toggleComponentVisibility(componentKey, newVisibility);
           
           if (onToggleComponentVisibility) {
             onToggleComponentVisibility(componentKey, newVisibility);
@@ -285,26 +143,24 @@ export default function Navigation({
     }
     
     // Close dropdowns
-    setActiveDropdown(null);
-    setActiveSubDropdown(null);
+    actions.closeDropdowns();
   };
 
   const handleAxisClick = (axis) => {
-    setActiveAxis(axis);
+    actions.setActiveAxis(axis);
     if (onAxisChange) {
       onAxisChange(axis);
     }
   };
 
   const handleViewModeClick = (mode) => {
-    setViewMode(mode);
     if (onViewModeChange) {
       onViewModeChange(mode);
     }
   };
 
   const handleMaterialModeClick = (mode) => {
-    setMaterialMode(mode);
+    actions.setMaterialMode(mode);
     if (onMaterialChange) {
       onMaterialChange(mode);
     }
@@ -314,7 +170,7 @@ export default function Navigation({
   const handleLoginSuccess = async (credentials) => {
     try {
       await login(credentials);
-      setShowLogin(false);
+      actions.setShowLogin(false);
     } catch (error) {
       console.error('Login failed:', error);
     }
@@ -323,7 +179,7 @@ export default function Navigation({
   const handleSignupSuccess = async (userData) => {
     try {
       await signup(userData);
-      setShowSignup(false);
+      actions.setShowSignup(false);
     } catch (error) {
       console.error('Signup failed:', error);
     }
@@ -338,13 +194,13 @@ export default function Navigation({
   };
 
   const handleSwitchToSignup = () => {
-    setShowLogin(false);
-    setShowSignup(true);
+    actions.setShowLogin(false);
+    actions.setShowSignup(true);
   };
 
   const handleSwitchToLogin = () => {
-    setShowSignup(false);
-    setShowLogin(true);
+    actions.setShowSignup(false);
+    actions.setShowLogin(true);
   };
 
   // File operation handlers
@@ -468,7 +324,6 @@ export default function Navigation({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      
       // Show success message with details
       const objectCount = completeSceneData.objects?.length || 0;
       const compositionCount = completeSceneData.compositions?.length || 0;
@@ -484,7 +339,7 @@ export default function Navigation({
 
   const handleSaveToCloud = async () => {
     if (!user) {
-      setShowLogin(true);
+      actions.setShowLogin(true);
       return;
     }
     
@@ -495,7 +350,7 @@ export default function Navigation({
     
     try {
       // Import the API service
-      const apiService = (await import('../../services/api')).default;
+      const apiService = (await import('../../../services/api')).default;
       
       // Ask user for project name
       const projectName = prompt(
@@ -678,13 +533,13 @@ export default function Navigation({
 
   const handleLoadFromCloud = async () => {
     if (!user) {
-      setShowLogin(true);
+      actions.setShowLogin(true);
       return;
     }
     
     try {
       // Import the API service
-      const apiService = (await import('../../services/api')).default;
+      const apiService = (await import('../../../services/api')).default;
       
       // Get user's projects
       const projectsResponse = await apiService.getProjects();
@@ -710,7 +565,6 @@ export default function Navigation({
         alert('Project not found!');
         return;
       }
-      
       
       // Load complete project data using the new API
       const completeProject = await apiService.getCompleteProject(selectedProject.id);
@@ -860,7 +714,6 @@ export default function Navigation({
   };
 
   const handlePrint = () => {
-    
     // Get the Three.js canvas element
     const canvas = document.querySelector('canvas');
     if (!canvas) {
@@ -1045,401 +898,24 @@ export default function Navigation({
     }
   };
 
-  const renderMenuItem = (item, level = 0) => {
-    if (typeof item === 'string') {
-      // Handle separator
-      if (item === '---') {
-        return (
-          <li key="separator" className="border-t border-neutral-600 my-1"></li>
-        );
-      }
-      
-      // Handle visibility toggle items
-      const visibilityMap = {
-        'Contextual Help': 'contextualHelp',
-        'Help Overlay': 'helpOverlay',
-        'Geometry Selector': 'geometrySelector',
-        'Volume Form': 'volumeForm',
-        'Directory': 'directory',
-        'Rotation Sliders': 'rotationSliders',
-        'Debug Panel': 'debugPanel'
-      };
-      
-      if (visibilityMap[item]) {
-        const componentKey = visibilityMap[item];
-        const isVisible = componentVisibility[componentKey];
-        
-        return (
-          <li
-            key={item}
-            onClick={() => handleItemClick(item)}
-            className="px-3 py-2 hover:bg-neutral-600 cursor-pointer text-white text-[13px] whitespace-nowrap flex items-center justify-between"
-          >
-            <span>{item}</span>
-            <div className={`w-3 h-3 border border-neutral-400 rounded ${isVisible ? 'bg-neutral-400' : 'bg-transparent'}`}>
-              {isVisible && (
-                <div className="w-1.5 h-1.5 bg-neutral-700 rounded-sm m-0.5"></div>
-              )}
-            </div>
-          </li>
-        );
-      }
-      
-      // File menu items with icons
-      const fileMenuIcons = {
-        'Save to Computer': Laptop,
-        'Save to Cloud': Cloud,
-        'Load from Computer': HardDriveUpload,
-        'Load from Cloud': CloudUpload,
-        'Create New Project': CirclePlus,
-        'Export (Image)': Image,
-        'Export (OBJ)': FileBox,
-        'Print': Printer
-      };
-      
-      const IconComponent = fileMenuIcons[item];
-      
-      // Regular menu items
-      return (
-        <li
-          key={item}
-          onClick={() => handleItemClick(item)}
-          className="px-3 py-2 hover:bg-neutral-600 cursor-pointer text-white text-[13px] whitespace-nowrap flex items-center space-x-2"
-        >
-          {IconComponent && <IconComponent size={14} className="text-neutral-400" />}
-          <span>{item}</span>
-        </li>
-      );
-    }
-
-    if (typeof item === 'object' && item.submenu) {
-      const isActive = activeSubDropdown === item.name;
-      return (
-        <li key={item.name} className="relative">
-          <div
-            onClick={() => handleSubMenuClick(item.name)}
-            className="px-3 py-2 hover:bg-neutral-600 cursor-pointer text-white text-sm whitespace-nowrap flex items-center justify-between"
-          >
-            {item.name}
-            <ChevronRight size={14} className={isActive ? 'rotate-90' : ''} />
-          </div>
-          {isActive && (
-            <ul className="absolute left-full top-0 bg-neutral-700 border border-neutral-600 rounded shadow-lg min-w-max z-50">
-              {item.submenu.map((subItem) => renderMenuItem(subItem, level + 1))}
-            </ul>
-          )}
-        </li>
-      );
-    }
+  return {
+    handleItemClick,
+    handleAxisClick,
+    handleViewModeClick,
+    handleMaterialModeClick,
+    handleLoginSuccess,
+    handleSignupSuccess,
+    handleLogout,
+    handleSwitchToSignup,
+    handleSwitchToLogin,
+    handleSaveToComputer,
+    handleSaveToCloud,
+    handleLoadFromComputer,
+    handleExportOBJ,
+    handleLoadFromCloud,
+    handleCreateNewProject,
+    handleExportImage,
+    handlePrint,
+    handleQuit
   };
-
-  return (
-    <nav className="bg-neutral-700 w-full pointer-events-auto relative z-40">
-      <div className="flex justify-between items-center">
-        {/* Left side - Logo and Menu items */}
-        <div className="flex items-center">
-          {/* INVAP Logo */}
-          <div className="flex items-center mr-4">
-            <img 
-              src="/INVAP.webp" 
-              alt="INVAP Logo" 
-              className="absolute left-0 w-24 h-20 object-contain"
-            />
-          </div>
-          
-          {/* Menu items */}
-          <ul className="flex text-[13px] ml-20">
-            {Object.keys(menuStructure).map((menuName) => (
-            <li key={menuName} className="relative">
-              <button
-                onClick={() => handleMenuClick(menuName)}
-                className={`px-2 sm:px-4 py-2 sm:py-3 cursor-pointer text-white ${
-                  activeDropdown === menuName ? 'bg-neutral-600' : 'hover:bg-neutral-600'
-                }`}
-              >
-                {menuName}
-              </button>
-              
-              {activeDropdown === menuName && (
-                <ul className="absolute top-full left-0 bg-neutral-700 border border-neutral-600 rounded shadow-lg min-w-max z-50">
-                  {menuStructure[menuName].map((item) => renderMenuItem(item))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
-        </div>
-
-        {/* Right side - Axis, View Mode controls, and Authentication */}
-        <div className="flex items-center space-x-1 sm:space-x-2 mr-2 sm:mr-4">
-          {/* Axis Controls */}
-          <div className="flex items-center space-x-1 border-l border-neutral-600 pl-2 sm:pl-3">
-            <span className="text-white text-[10px] sm:text-xs mr-1 sm:mr-2">Axis:</span>
-            {['X', 'Y', 'Z'].map((axis) => (
-              <button
-                key={axis}
-                onClick={() => handleAxisClick(axis)}
-                className={`px-1 sm:px-2 py-1 text-[10px] sm:text-xs font-medium rounded ${
-                  activeAxis === axis
-                    ? 'bg-neutral-400 text-black'
-                    : 'bg-neutral-600 text-white hover:bg-neutral-500'
-                }`}
-              >
-                {axis}
-              </button>
-            ))}
-          </div>
-
-          {/* Material Mode Controls */}
-          <div className="flex items-center space-x-1 border-l border-neutral-600 pl-3 mr-20">
-            <span className="text-white text-xs mr-2">Material:</span>
-            <button
-              onClick={() => handleMaterialModeClick('solid')}
-              className={`p-1 rounded ${
-                materialMode === 'solid'
-                  ? 'bg-neutral-400 text-black'
-                  : 'text-white hover:bg-neutral-600'
-              }`}
-              title="Solid Material"
-            >
-              <Circle size={16} />
-            </button>
-            <button
-              onClick={() => handleMaterialModeClick('wireframe')}
-              className={`p-1 rounded ${
-                materialMode === 'wireframe'
-                  ? 'bg-neutral-400 text-black'
-                  : 'text-white hover:bg-neutral-600'
-              }`}
-              title="Wireframe Material"
-            >
-              <CircleDashed size={16} />
-            </button>
-            <button
-              onClick={() => handleMaterialModeClick('transparent')}
-              className={`p-1 rounded ${
-                materialMode === 'transparent'
-                  ? 'bg-neutral-400 text-black'
-                  : 'text-white hover:bg-neutral-600'
-              }`}
-              title="Transparent Material"
-            >
-              <CircleDotDashed size={16} />
-            </button>
-            <button
-              onClick={() => handleMaterialModeClick('points')}
-              className={`p-1 rounded ${
-                materialMode === 'points'
-                  ? 'bg-neutral-400 text-black'
-                  : 'text-white hover:bg-neutral-600'
-              }`}
-              title="Points Material"
-            >
-              <CircleDot size={16} />
-            </button>
-          </div>
-
-          {/* Authentication Controls */}
-          <div className="flex items-center space-x-1 border-l border-neutral-600 pl-3">
-            {user ? (
-              <Profile 
-                user={user} 
-                onLogout={handleLogout}
-                onClose={() => {}}
-              />
-            ) : (
-              <>
-                <button
-                  onClick={() => setShowLogin(true)}
-                  className="flex items-center space-x-1 px-2 py-1 bg-neutral-600 hover:bg-neutral-500 rounded text-white text-xs transition-colors"
-                  title="Login"
-                >
-                  <LogIn size={14} />
-                  <span className="hidden sm:inline">Login</span>
-                </button>
-                <button
-                  onClick={() => setShowSignup(true)}
-                  className="flex items-center space-x-1 px-2 py-1 bg-neutral-600 hover:bg-neutral-500 rounded text-white text-xs transition-colors"
-                  title="Sign Up"
-                >
-                  <UserPlus size={14} />
-                  <span className="hidden sm:inline">Sign Up</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-      
-      {/* Overlay to close dropdowns when clicking outside */}
-      {activeDropdown && (
-        <div
-          className="fixed inset-0 z-30"
-          onClick={() => {
-            setActiveDropdown(null);
-            setActiveSubDropdown(null);
-          }}
-        />
-      )}
-
-      {/* Authentication Modals */}
-      {showLogin && (
-        <Login
-          onClose={() => setShowLogin(false)}
-          onSwitchToSignup={handleSwitchToSignup}
-          onLoginSuccess={handleLoginSuccess}
-        />
-      )}
-
-      {showSignup && (
-        <Signup
-          onClose={() => setShowSignup(false)}
-          onSwitchToLogin={handleSwitchToLogin}
-          onSignupSuccess={handleSignupSuccess}
-        />
-      )}
-
-      {/* Mesh Panel */}
-      {showMeshPanel && (
-        <MeshPanel
-          isVisible={showMeshPanel}
-          onClose={() => setShowMeshPanel(false)}
-          selectedVolume={selectedVolume}
-          onMeshValidate={onMeshValidate}
-        />
-      )}
-
-      {/* Computation Panel */}
-      {showComputationPanel && (
-        <ComputationPanel
-          isVisible={showComputationPanel}
-          onClose={() => setShowComputationPanel(false)}
-          sceneData={sceneData}
-          onComputationComplete={onComputationComplete}
-        />
-      )}
-
-      {/* Generate Scene Panel */}
-      {showGenerateScenePanel && (
-        <GenerateScenePanel
-          isVisible={showGenerateScenePanel}
-          onClose={() => setShowGenerateScenePanel(false)}
-          sceneData={sceneData}
-          onSceneGenerated={onSceneGenerated}
-        />
-      )}
-
-      {/* Inspector Panels */}
-      {showCompositionsInspector && (
-        <CompositionsInspectorPanel
-          isVisible={showCompositionsInspector}
-          onClose={() => setShowCompositionsInspector(false)}
-          compositions={compositions}
-          onEditComposition={(composition) => {
-            // TODO: Implement edit composition functionality
-            console.log('Edit composition:', composition);
-          }}
-          onDeleteComposition={(composition) => {
-            // TODO: Implement delete composition functionality
-            console.log('Delete composition:', composition);
-          }}
-          onCreateComposition={() => {
-            setShowCompositionPanel(true);
-          }}
-        />
-      )}
-
-      {showSourcesInspector && (
-        <SourcesInspectorPanel
-          isVisible={showSourcesInspector}
-          onClose={() => setShowSourcesInspector(false)}
-          sources={sources}
-          onEditSource={(source) => {
-            // TODO: Implement edit source functionality
-            console.log('Edit source:', source);
-          }}
-          onDeleteSource={(source) => {
-            // TODO: Implement delete source functionality
-            console.log('Delete source:', source);
-          }}
-          onCreateSource={() => {
-            setShowCompoundVolume(true);
-          }}
-        />
-      )}
-
-      {showSensorsInspector && (
-        <SensorsInspectorPanel
-          isVisible={showSensorsInspector}
-          onClose={() => setShowSensorsInspector(false)}
-          sensors={sensors}
-          onEditSensor={(sensor) => {
-            // TODO: Implement edit sensor functionality
-            console.log('Edit sensor:', sensor);
-          }}
-          onDeleteSensor={(sensor) => {
-            // TODO: Implement delete sensor functionality
-            console.log('Delete sensor:', sensor);
-          }}
-          onCreateSensor={() => {
-            setShowSensorPanel(true);
-          }}
-        />
-      )}
-
-      {/* Creation Panels */}
-      {showCompositionPanel && (
-        <CompositionPanel
-          isVisible={showCompositionPanel}
-          onClose={() => setShowCompositionPanel(false)}
-          onUse={(composition) => {
-            // TODO: Implement use composition functionality
-            console.log('Use composition:', composition);
-            setShowCompositionPanel(false);
-          }}
-          onStore={(composition) => {
-            // TODO: Implement store composition functionality
-            console.log('Store composition:', composition);
-            setShowCompositionPanel(false);
-          }}
-          existingCompositions={existingCompositions}
-        />
-      )}
-
-      {showSensorPanel && (
-        <SensorPanel
-          isVisible={showSensorPanel}
-          onClose={() => setShowSensorPanel(false)}
-          onValidate={(sensors) => {
-            // TODO: Implement validate sensors functionality
-            console.log('Validate sensors:', sensors);
-          }}
-          onSaveAs={(sensors) => {
-            // TODO: Implement save sensors functionality
-            console.log('Save sensors:', sensors);
-            setShowSensorPanel(false);
-          }}
-          existingSensors={existingSensors}
-          existingCompositions={existingCompositions}
-        />
-      )}
-
-      {showCompoundVolume && (
-        <CompoundVolume
-          isVisible={showCompoundVolume}
-          onClose={() => setShowCompoundVolume(false)}
-          onValidate={(volume) => {
-            // TODO: Implement validate volume functionality
-            console.log('Validate volume:', volume);
-          }}
-          onSaveAs={(volume) => {
-            // TODO: Implement save volume functionality
-            console.log('Save volume:', volume);
-            setShowCompoundVolume(false);
-          }}
-          existingCompositions={existingCompositions}
-        />
-      )}
-    </nav>
-  );
 }

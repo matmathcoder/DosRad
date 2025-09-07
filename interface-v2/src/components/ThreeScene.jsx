@@ -8,9 +8,9 @@ import HistoryManager from './ThreeScene/HistoryManager';
 import PersistenceManager from './ThreeScene/PersistenceManager';
 import ViewManager from './ThreeScene/ViewManager';
 import EventHandler from './ThreeScene/EventHandler/EventHandler';
-import PhysicsSimulator from './ThreeScene/PhysicsSimulator';
+import PhysicsSimulator from './ThreeScene/PhysicsSimulator/PhysicsSimulator';
 import ContextMenu from './ThreeScene/ContextMenu';
-import MeshPropertiesPanel from './MeshPropertiesPanel';
+import MeshPropertiesPanel from './Panels/MeshPropertiesPanel';
 
 export default function ThreeScene({ 
   selectedTool, 

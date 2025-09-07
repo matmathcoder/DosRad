@@ -13,7 +13,7 @@ import {
   Save,
   Download
 } from 'lucide-react';
-import apiService from '../../services/api';
+import apiService from '../../../services/api';
 import Projects from './Projects';
 import ProfileDetails from './ProfileDetails';
 

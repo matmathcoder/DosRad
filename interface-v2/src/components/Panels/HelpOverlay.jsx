@@ -18,7 +18,7 @@ import {
   Maximize2,
   Minus as MinusIcon,
 } from 'lucide-react';
-import collisionDetector from '../utils/collisionDetection';
+import collisionDetector from '../../utils/collisionDetection';
 
 export default function HelpOverlay({ isVisible, onClose }) {
   const [isMinimized, setIsMinimized] = useState(false);
