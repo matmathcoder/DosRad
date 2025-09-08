@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { loadLayoutConfig, saveLayoutConfig } from './layoutUtils';
 
 /**
  * Custom hook for managing App state
@@ -47,17 +48,36 @@ export default function useAppState() {
     debugPanel: false
   });
 
-  // Layout configuration state
-  const [layoutConfig, setLayoutConfig] = useState({
-    sidebar: 'right', // 'right', 'left', 'top', 'bottom'
-    geometrySelector: 'left', // 'left', 'right', 'top', 'bottom'
-    directory: 'left' // 'left', 'right', 'top', 'bottom'
+  // Layout configuration state - Load from localStorage on initialization
+  const [layoutConfig, setLayoutConfig] = useState(() => {
+    console.log('Initializing layout config...');
+    try {
+      const config = loadLayoutConfig();
+      console.log('Layout config initialized:', config);
+      return config;
+    } catch (error) {
+      console.warn('Failed to load layout config, using default:', error);
+      return {
+        sidebar: 'right', // 'right', 'left', 'top', 'bottom'
+        geometrySelector: 'left', // 'left', 'right', 'top', 'bottom'
+        directory: 'left' // 'left', 'right', 'top', 'bottom'
+      };
+    }
   });
 
   // Panel visibility states for volume form panels
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
   const [showLineSpectrumPanel, setShowLineSpectrumPanel] = useState(false);
   const [showGroupSpectrumPanel, setShowGroupSpectrumPanel] = useState(false);
+
+  // Save layout configuration to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      saveLayoutConfig(layoutConfig);
+    } catch (error) {
+      console.warn('Failed to save layout config:', error);
+    }
+  }, [layoutConfig]);
 
   // Current project state
   const [currentProject, setCurrentProject] = useState(null);

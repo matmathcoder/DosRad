@@ -18,7 +18,7 @@ import RotationSliders from '../components/Panels/RotationSliders';
 import Directory from '../components/Bars/Directory/Directory';
 import VolumePropertiesPanel from '../components/Panels/VolumePropertiesPanel';
 import PhysicsControlPanel from '../components/Panels/PhysicsControlPanel';
-import { cycleLayout } from './AppData';
+import { cycleLayout } from './layoutUtils';
 
 /**
  * App Layout Component
@@ -64,35 +64,7 @@ export default function AppLayout({
             ));
           }}
           onGeometryChanged={handlers.handleGeometryChanged}
-          onGeometryCreated={(mesh) => {
-            // Skip if we're restoring from localStorage to prevent duplicates
-            if (window.isRestoringFromLocalStorage) {
-              console.log('Skipping onGeometryCreated during restoration');
-              return;
-            }
-            
-            // Handle geometry created via drag and drop
-            state.setHasObjects(true);
-            
-            // Add to existing volumes list for geometry panel and directory
-            if (mesh && mesh.userData) {
-              // Check if this geometry already exists to prevent duplicates
-              const existingVolume = state.existingVolumes.find(vol => vol.id === mesh.userData.id);
-              if (existingVolume) {
-                console.log('Geometry already exists in state, skipping duplicate:', mesh.userData.volumeName);
-                return;
-              }
-              
-              const volumeData = {
-                id: mesh.userData.id || Date.now(),
-                type: mesh.userData.type,
-                position: mesh.position,
-                visible: mesh.userData.visible !== false, // Include visibility state
-                userData: mesh.userData
-              };
-              state.setExistingVolumes(prev => [...prev, volumeData]);
-            }
-          }}
+          onGeometryCreated={handlers.handleGeometryCreated}
           existingCompositions={state.existingCompositions}
           existingSensors={state.existingSensors}
           existingSpectra={state.existingSpectra}

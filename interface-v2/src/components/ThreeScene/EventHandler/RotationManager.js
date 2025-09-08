@@ -10,57 +10,54 @@ export class RotationManager {
     this.isRotating = false;
     this.mouseX = 0;
     this.mouseY = 0;
-    this.rotationSensitivity = 0.005; // Reduced for smoother rotation
+    this.rotationSensitivity = 0.005; // Reduced sensitivity for smoother rotation
     
-    // Trackball-style rotation variables
-    this.rotationStart = new THREE.Vector2();
-    this.rotationEnd = new THREE.Vector2();
-    this.rotationDelta = new THREE.Vector2();
-    this.objectStartRotation = new THREE.Euler();
-    this.objectStartQuaternion = new THREE.Quaternion();
+    // Simple rotation tracking
+    this.lastMouseX = 0;
+    this.lastMouseY = 0;
     
-    // Rotation constraints
-    this.maxRotationSpeed = 0.02;
-    this.minRotationSpeed = 0.001;
+    // Add rotation speed tracking
+    this.rotationSpeed = new THREE.Vector2();
+    this.lastUpdateTime = 0;
   }
 
   setModules(modules) {
     this.modules = modules;
   }
 
-  initialize() {}
+  initialize() {
+    this.cleanup(); // Ensure clean state
+  }
 
   beginRotation(event) {
+    console.log('beginRotation', {
+      tool: this.state.selectedToolRef.current,
+      geometry: this.refs.selectedGeometryRef.current,
+      event: { clientX: event.clientX, clientY: event.clientY }
+    });
+    
     if (this.state.selectedToolRef.current !== 'rotate' || !this.refs.selectedGeometryRef.current) {
       return;
     }
 
     this.isRotating = true;
+    this.lastMouseX = event.clientX;
+    this.lastMouseY = event.clientY;
+    this.lastUpdateTime = performance.now();
+    this.rotationSpeed.set(0, 0);
 
     const object = this.refs.selectedGeometryRef.current;
-    const renderer = this.refs.rendererRef.current;
-    const rect = renderer.domElement.getBoundingClientRect();
 
-    // Store normalized mouse position (-1 to 1)
-    this.rotationStart.set(
-      ((event.clientX - rect.left) / rect.width) * 2 - 1,
-      -((event.clientY - rect.top) / rect.height) * 2 + 1
-    );
-
-    // Store object's initial rotation state
-    this.objectStartRotation.copy(object.rotation);
-    this.objectStartQuaternion.copy(object.quaternion);
-
-    // disable orbit controls
+    // Disable orbit controls during rotation
     const orbitControls = this.modules?.cameraController?.getOrbitControls();
     if (orbitControls) orbitControls.enabled = false;
 
-    // disable transform controls
+    // Disable transform controls during rotation
     if (this.modules?.transformControlsManager?.transformControlsRef) {
       this.modules.transformControlsManager.transformControlsRef.enabled = false;
     }
 
-    // visual feedback
+    // Visual feedback
     if (object.material) {
       if (!object.userData.originalColor) {
         object.userData.originalColor = object.material.color.getHex();
@@ -73,6 +70,16 @@ export class RotationManager {
   }
 
   updateRotation(event) {
+    console.log('updateRotation', {
+      isRotating: this.isRotating,
+      tool: this.state.selectedToolRef.current,
+      object: this.refs.selectedGeometryRef.current,
+      delta: {
+        x: event.clientX - this.lastMouseX,
+        y: event.clientY - this.lastMouseY
+      }
+    });
+    
     if (!this.isRotating || this.state.selectedToolRef.current !== 'rotate' || !this.refs.selectedGeometryRef.current) {
       return;
     }
@@ -80,64 +87,62 @@ export class RotationManager {
     event.preventDefault();
 
     const object = this.refs.selectedGeometryRef.current;
-    const renderer = this.refs.rendererRef.current;
-    const rect = renderer.domElement.getBoundingClientRect();
+    
+    // Calculate mouse movement delta (recommended Three.js approach)
+    const deltaX = event.clientX - this.lastMouseX;
+    const deltaY = event.clientY - this.lastMouseY;
 
-    // Get current normalized mouse position
-    this.rotationEnd.set(
-      ((event.clientX - rect.left) / rect.width) * 2 - 1,
-      -((event.clientY - rect.top) / rect.height) * 2 + 1
-    );
-
-    // Calculate rotation delta
-    this.rotationDelta.subVectors(this.rotationEnd, this.rotationStart);
-
-    // Apply rotation constraints
-    const deltaLength = this.rotationDelta.length();
-    if (deltaLength < this.minRotationSpeed) return;
-
-    // Clamp rotation speed
-    const clampedDelta = this.rotationDelta.clone().normalize().multiplyScalar(
-      Math.min(deltaLength, this.maxRotationSpeed)
-    );
-
-    // Get camera for camera-relative rotation
+    // Get the camera for camera-relative rotation
     const camera = this.modules?.cameraController?.getActiveCamera();
     if (!camera) return;
 
-    // Create rotation quaternions based on camera orientation
-    const cameraDirection = new THREE.Vector3();
-    camera.getWorldDirection(cameraDirection);
-    
-    // Horizontal rotation (around camera's up vector)
-    const horizontalAxis = camera.up.clone().normalize();
-    const horizontalQuaternion = new THREE.Quaternion().setFromAxisAngle(
-      horizontalAxis, 
-      -clampedDelta.x * this.rotationSensitivity * 10
+    // Get current time for smooth rotation
+    const currentTime = performance.now();
+    const deltaTime = (currentTime - this.lastUpdateTime) / 1000; // Convert to seconds
+    this.lastUpdateTime = currentTime;
+
+    // Calculate rotation speed
+    this.rotationSpeed.x = deltaX * this.rotationSensitivity;
+    this.rotationSpeed.y = deltaY * this.rotationSensitivity;
+
+    // Get camera basis vectors
+    const cameraUp = camera.up.clone();
+    const cameraForward = new THREE.Vector3();
+    camera.getWorldDirection(cameraForward);
+    const cameraRight = new THREE.Vector3().crossVectors(cameraForward, cameraUp);
+
+    // Create rotation quaternions
+    const horizontalRotation = new THREE.Quaternion().setFromAxisAngle(
+      cameraUp,
+      -this.rotationSpeed.x
     );
 
-    // Vertical rotation (around camera's right vector)
-    const cameraRight = new THREE.Vector3();
-    cameraRight.crossVectors(cameraDirection, camera.up).normalize();
-    const verticalQuaternion = new THREE.Quaternion().setFromAxisAngle(
-      cameraRight, 
-      clampedDelta.y * this.rotationSensitivity * 10
+    const verticalRotation = new THREE.Quaternion().setFromAxisAngle(
+      cameraRight,
+      -this.rotationSpeed.y
     );
 
     // Combine rotations
-    const combinedQuaternion = new THREE.Quaternion()
-      .multiplyQuaternions(horizontalQuaternion, verticalQuaternion);
+    const combinedRotation = new THREE.Quaternion()
+      .multiply(horizontalRotation)
+      .multiply(verticalRotation);
 
-    // Apply rotation to object
-    object.quaternion.multiplyQuaternions(combinedQuaternion, object.quaternion);
-    
-    // Update rotation from quaternion to keep Euler angles in sync
-    object.rotation.setFromQuaternion(object.quaternion);
-    
-    // Update the object's matrix
+    // Apply the rotation
+    object.quaternion.multiplyQuaternions(combinedRotation, object.quaternion);
+
+    // Update matrices
     object.updateMatrix();
+    object.updateMatrixWorld(true);
+
+    // Request a render if needed
+    if (this.modules?.rendererRef?.current) {
+      this.modules.rendererRef.current.render(
+        this.modules.sceneRef.current,
+        camera
+      );
+    }
     
-    // Enforce scene boundaries after rotation (in case rotation moved object outside bounds)
+    // Enforce scene boundaries after rotation
     if (this.modules?.floorConstraintManager) {
       this.modules.floorConstraintManager.enforceFloorConstraint(object);
     }
@@ -150,22 +155,24 @@ export class RotationManager {
         z: object.rotation.z
       };
     }
-    
-    // Update start position for next frame
-    this.rotationStart.copy(this.rotationEnd);
-    
-    // Force a re-render by updating the transform controls if they exist
-    if (this.modules?.transformControlsManager?.transformControlsRef && this.modules.transformControlsManager.transformControlsRef.object === object) {
-      this.modules.transformControlsManager.transformControlsRef.dispatchEvent({ type: 'change' });
-    }
+
+    // Update last mouse position
+    this.lastMouseX = event.clientX;
+    this.lastMouseY = event.clientY;
   }
 
   endRotation() {
+    console.log('endRotation', {
+      wasRotating: this.isRotating,
+      object: this.refs.selectedGeometryRef.current
+    });
+    
     if (!this.isRotating) return;
 
     this.isRotating = false;
 
     const object = this.refs.selectedGeometryRef.current;
+    if (!object) return;
 
     // re-enable orbit + transform controls
     const orbitControls = this.modules?.cameraController?.getOrbitControls();
@@ -194,14 +201,9 @@ export class RotationManager {
 
   cleanup() {
     this.isRotating = false;
-    this.mouseX = 0;
-    this.mouseY = 0;
-    
-    // Reset trackball variables
-    this.rotationStart.set(0, 0);
-    this.rotationEnd.set(0, 0);
-    this.rotationDelta.set(0, 0);
-    this.objectStartRotation.set(0, 0, 0);
-    this.objectStartQuaternion.set(0, 0, 0, 1);
+    this.lastMouseX = 0;
+    this.lastMouseY = 0;
+    this.rotationSpeed.set(0, 0);
+    this.lastUpdateTime = 0;
   }
 }

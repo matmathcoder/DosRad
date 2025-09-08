@@ -85,9 +85,11 @@ export class DragDropManager {
             this.modules.floorConstraintManager.enforceFloorConstraint(mesh);
           }
           
-          // Select the new geometry
+          // Select the new geometry with a small delay to ensure it's in scene
           if (this.modules?.selectionManager) {
-            this.modules.selectionManager.selectGeometry(mesh);
+            setTimeout(() => {
+              this.modules.selectionManager.selectGeometry(mesh);
+            }, 10);
           }
           
           // Notify App.jsx about the new geometry creation

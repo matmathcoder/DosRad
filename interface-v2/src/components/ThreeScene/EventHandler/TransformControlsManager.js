@@ -37,21 +37,23 @@ export class TransformControlsManager {
           }
           // Check helper object
           const helper = this.transformControlsRef.getHelper();
+          
+          // Configure to show only 3 arrows (one per axis) instead of 6
           this.transformControlsRef.setMode('translate');
           this.transformControlsRef.setSize(0.8);
           this.transformControlsRef.setSpace('world');
           
-          // Set neutral colors for professional appearance
-          this.transformControlsRef.setTranslationSnap(0.1);
-          this.transformControlsRef.setRotationSnap(0.1);
-          this.transformControlsRef.setScaleSnap(0.1);
-          
-          // Additional configuration for better scale handles visibility
+          // Show only positive direction arrows (3 arrows total)
           this.transformControlsRef.showX = true;
           this.transformControlsRef.showY = true;
           this.transformControlsRef.showZ = true;
           
-          // Ensure all transform modes work properly
+          // Hide rotation rings and other visual elements
+          this.transformControlsRef.showXY = false;
+          this.transformControlsRef.showXZ = false;
+          this.transformControlsRef.showYZ = false;
+          
+          // Set snap values
           this.transformControlsRef.setTranslationSnap(0.1);
           this.transformControlsRef.setRotationSnap(0.1);
           this.transformControlsRef.setScaleSnap(0.1);
@@ -175,10 +177,10 @@ export class TransformControlsManager {
             orbitControls.enabled = true;
           }
         } else if (selectedTool === 'rotate') {
-          // Rotate tool - show transform controls in rotate mode
+          // Rotate tool - show transform controls but keep in translate mode (3 arrows only)
           this.transformControlsRef.enabled = true;
           this.transformControlsRef.visible = true;
-          this.transformControlsRef.setMode('rotate');
+          this.transformControlsRef.setMode('translate'); // Keep translate mode for 3 arrows
           // Disable OrbitControls when rotate tool is active to prevent interference
           const orbitControls = this.modules?.cameraController?.getOrbitControls();
           if (orbitControls) {

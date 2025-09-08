@@ -101,7 +101,7 @@ export default class EventHandler {
     
     if (this.refs.canvasRef.current) {
       this.refs.canvasRef.current.removeEventListener('pointerdown', this.handlePointerDown);
-      this.refs.canvasRef.current.removeEventListener('mousemove', this.handleCanvasMouseMove);
+      this.refs.canvasRef.current.removeEventListener('pointermove', this.handleCanvasMouseMove);
       this.refs.canvasRef.current.removeEventListener('pointerup', this.handlePointerUp);
       this.refs.canvasRef.current.removeEventListener('contextmenu', this.handleContextMenu);
     }
@@ -112,9 +112,12 @@ export default class EventHandler {
     
     if (this.refs.canvasRef.current) {
       this.refs.canvasRef.current.addEventListener('pointerdown', this.handlePointerDown);
-      this.refs.canvasRef.current.addEventListener('mousemove', this.handleCanvasMouseMove);
+      this.refs.canvasRef.current.addEventListener('pointermove', this.handleCanvasMouseMove);
       this.refs.canvasRef.current.addEventListener('pointerup', this.handlePointerUp);
       this.refs.canvasRef.current.addEventListener('contextmenu', this.handleContextMenu);
+      
+      // Add pointer capture for better drag handling
+      this.refs.canvasRef.current.style.touchAction = 'none';
     }
   }
   
@@ -396,6 +399,14 @@ export default class EventHandler {
           this.modules.cameraController.zoomToFit([object]);
         }
         this.callbacks.onToolSelect && this.callbacks.onToolSelect(null);
+      } else if (tool === 'rotate') {
+        // In rotate mode, select the object and begin rotation
+        this.selectionManager.selectGeometry(object, event.ctrlKey);
+        this.rotationManager.beginRotation(event);
+        // Set pointer capture for better drag handling
+        if (this.refs.canvasRef.current) {
+          this.refs.canvasRef.current.setPointerCapture(event.pointerId);
+        }
       } else if (tool === 'pan') {
         // In pan mode, select the object and attach transform controls
         this.selectionManager.selectGeometry(object, event.ctrlKey);
@@ -424,6 +435,11 @@ export default class EventHandler {
   
   handlePointerUp(event) {
     this.vertexHelpersManager.mouseDown = false;
+    
+    // Release pointer capture
+    if (this.refs.canvasRef.current) {
+      this.refs.canvasRef.current.releasePointerCapture(event.pointerId);
+    }
     
     // Clear box selection timer
     if (this.boxSelectionManager.boxSelectTimer) {
@@ -478,6 +494,9 @@ export default class EventHandler {
   }
   
   handleToolChange(selectedTool) {
+    // Update the tool ref immediately to ensure all managers get the correct tool
+    this.state.selectedToolRef.current = selectedTool;
+    
     this.transformControlsManager.handleToolChange(selectedTool);
     this.vertexHelpersManager.handleToolChange(selectedTool);
     this.rotationManager.handleToolChange(selectedTool);

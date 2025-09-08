@@ -41,23 +41,34 @@ export class SelectionManager {
       
       // Attach transform controls (only for select, pan, and rotate tools)
       if (this.modules?.transformControlsManager?.transformControlsRef && this.state.selectedToolRef.current !== 'resize') {
-        // Check if object is in the scene graph before attaching
-        if (this.refs.sceneGroupRef.current && this.refs.sceneGroupRef.current.children.includes(selectedObject)) {
-          this.modules.transformControlsManager.transformControlsRef.attach(selectedObject);
-          this.modules.transformControlsManager.transformControlsRef.visible = true;
-        } else {
-          console.warn('Cannot attach TransformControls: object not in scene graph');
-          return;
-        }
+        // Try immediate attachment first
+        this.attachTransformControlsImmediate(selectedObject);
         
-        // Set appropriate mode based on tool
-        if (this.state.selectedToolRef.current === 'rotate') {
-          this.modules.transformControlsManager.transformControlsRef.setMode('rotate');
-        } else if (this.state.selectedToolRef.current === 'pan') {
-          this.modules.transformControlsManager.transformControlsRef.setMode('translate');
-        } else {
-          this.modules.transformControlsManager.transformControlsRef.setMode('translate');
-        }
+        // Use a small delay to ensure object is fully added to scene graph
+        setTimeout(() => {
+          // Check if object is in the scene graph before attaching
+          if (this.refs.sceneGroupRef.current && this.refs.sceneGroupRef.current.children.includes(selectedObject)) {
+            this.modules.transformControlsManager.transformControlsRef.attach(selectedObject);
+            this.modules.transformControlsManager.transformControlsRef.visible = true;
+          } else {
+            console.warn('Cannot attach TransformControls: object not in scene graph');
+            // Try to attach anyway - sometimes the object is there but not detected
+            try {
+              this.modules.transformControlsManager.transformControlsRef.attach(selectedObject);
+              this.modules.transformControlsManager.transformControlsRef.visible = true;
+            } catch (error) {
+              console.warn('Failed to attach TransformControls:', error);
+            }
+          }
+          // Set appropriate mode based on tool
+          if (this.state.selectedToolRef.current === 'rotate') {
+            this.modules.transformControlsManager.transformControlsRef.setMode('rotate');
+          } else if (this.state.selectedToolRef.current === 'pan') {
+            this.modules.transformControlsManager.transformControlsRef.setMode('translate');
+          } else {
+            this.modules.transformControlsManager.transformControlsRef.setMode('translate');
+          }
+        }, 10); // Small delay to ensure object is in scene graph
       } else if (this.state.selectedToolRef.current === 'resize') {
         // For resize tool, ensure transform controls are completely hidden
         if (this.modules?.transformControlsManager?.transformControlsRef) {
@@ -244,6 +255,27 @@ export class SelectionManager {
     }
   }
   
+  attachTransformControlsImmediate(selectedObject) {
+    if (!this.modules?.transformControlsManager?.transformControlsRef) return;
+    
+    try {
+      // Try to attach immediately without checking scene graph
+      this.modules.transformControlsManager.transformControlsRef.attach(selectedObject);
+      this.modules.transformControlsManager.transformControlsRef.visible = true;
+      
+      // Set appropriate mode based on tool
+      if (this.state.selectedToolRef.current === 'rotate') {
+        this.modules.transformControlsManager.transformControlsRef.setMode('rotate');
+      } else if (this.state.selectedToolRef.current === 'pan') {
+        this.modules.transformControlsManager.transformControlsRef.setMode('translate');
+      } else {
+        this.modules.transformControlsManager.transformControlsRef.setMode('translate');
+      }
+    } catch (error) {
+      // Silently fail - the setTimeout will try again
+    }
+  }
+
   handleToolChange(selectedTool) {
     // Handle tool-specific selection behavior
     if (selectedTool === 'resize' && this.refs.selectedGeometryRef.current) {

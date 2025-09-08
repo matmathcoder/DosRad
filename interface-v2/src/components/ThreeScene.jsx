@@ -249,8 +249,15 @@ export default function ThreeScene({
       const createGeometryFunction = (geometryType) => {
         const mesh = geometryManager.current.createGeometry(geometryType);
         if (mesh && eventHandler.current) {
-          // Auto-select the newly created geometry
-          eventHandler.current.selectGeometry(mesh);
+          // Auto-select the newly created geometry with a small delay to ensure it's in scene
+          setTimeout(() => {
+            eventHandler.current.selectGeometry(mesh);
+          }, 10);
+          
+          // Reset tool to select after creating geometry to prevent tool state issues
+          if (onToolSelect) {
+            onToolSelect('select');
+          }
         }
         return mesh;
       };
@@ -266,6 +273,11 @@ export default function ThreeScene({
         if (sensor && eventHandler.current) {
           // Auto-select the newly created sensor
           eventHandler.current.selectGeometry(sensor);
+          
+          // Reset tool to select after creating sensor to prevent tool state issues
+          if (onToolSelect) {
+            onToolSelect('select');
+          }
         }
         return sensor;
       };
@@ -409,6 +421,11 @@ export default function ThreeScene({
           if (geometry && eventHandler.current) {
             // Auto-select the newly created geometry
             eventHandler.current.selectGeometry(geometry);
+            
+            // Reset tool to select after creating geometry to prevent tool state issues
+            if (onToolSelect) {
+              onToolSelect('select');
+            }
           }
           return geometry;
         } catch (error) {

@@ -283,29 +283,6 @@ export function loadExampleScene(exampleData, existingVolumes, actions) {
   actions.setHasObjects(true);
 }
 
-/**
- * Layout swap functionality - Only 2 layouts: left/right swap
- */
-export function cycleLayout(layoutConfig, setLayoutConfig) {
-  setLayoutConfig(prev => {
-    // Toggle between the two layouts
-    if (prev.sidebar === 'right') {
-      // Switch to: Sidebar left, Directory + Geometry right
-      return {
-        sidebar: 'left',
-        geometrySelector: 'right',
-        directory: 'right'
-      };
-    } else {
-      // Switch to: Sidebar right, Directory + Geometry left
-      return {
-        sidebar: 'right',
-        geometrySelector: 'left',
-        directory: 'left'
-      };
-    }
-  });
-}
 
 /**
  * Function to collect current scene data

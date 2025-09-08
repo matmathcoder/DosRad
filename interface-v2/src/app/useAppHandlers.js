@@ -107,6 +107,67 @@ export default function useAppHandlers({
       const geometry = state.createGeometryFunction(geometryType);
       // Note: onGeometryCreated callback will handle adding to existingVolumes
       // to prevent duplicates
+      
+      // Manually trigger the geometry created handler for click-created geometries
+      // This ensures they get added to the Directory just like drag-and-drop geometries
+      if (geometry) {
+        handleGeometryCreated(geometry);
+      }
+    }
+  };
+
+  const handleGeometryCreated = (mesh) => {
+    // Skip if we're restoring from localStorage to prevent duplicates
+    if (window.isRestoringFromLocalStorage) {
+      console.log('Skipping handleGeometryCreated during restoration');
+      return;
+    }
+    
+    // Handle geometry created via click or drag and drop
+    actions.setHasObjects(true);
+    
+    // Add to existing volumes list for geometry panel and directory
+    if (mesh && mesh.userData) {
+      // Check if this geometry already exists to prevent duplicates
+      const existingVolume = state.existingVolumes.find(vol => vol.id === mesh.userData.id);
+      if (existingVolume) {
+        console.log('Geometry already exists in state, skipping duplicate:', mesh.userData.volumeName);
+        return;
+      }
+      
+      const volumeData = {
+        id: mesh.userData.id,
+        name: mesh.userData.volumeName || 'Unnamed Volume',
+        type: mesh.userData.type || 'Unknown',
+        position: {
+          x: mesh.position.x,
+          y: mesh.position.y,
+          z: mesh.position.z
+        },
+        rotation: {
+          x: mesh.rotation.x,
+          y: mesh.rotation.y,
+          z: mesh.rotation.z
+        },
+        scale: {
+          x: mesh.scale.x,
+          y: mesh.scale.y,
+          z: mesh.scale.z
+        },
+        visible: mesh.userData.visible !== false,
+        composition: mesh.userData.composition || null,
+        realDensity: mesh.userData.realDensity || 0,
+        tolerance: mesh.userData.tolerance || 0,
+        isSource: mesh.userData.isSource || false,
+        calculation: mesh.userData.calculation || null,
+        gammaSelectionMode: mesh.userData.gammaSelectionMode || null,
+        spectrum: mesh.userData.spectrum || null
+      };
+      
+      // Add to existing volumes
+      actions.setExistingVolumes(prev => [...prev, volumeData]);
+      
+      console.log('Added geometry to Directory:', volumeData.name);
     }
   };
 
@@ -484,6 +545,7 @@ export default function useAppHandlers({
     handleSpectrumSaveAs,
     handleGeometrySelect,
     handleGeometryCreate,
+    handleGeometryCreated,
     handleAxisChange,
     handleViewModeChange,
     handleMaterialChange,

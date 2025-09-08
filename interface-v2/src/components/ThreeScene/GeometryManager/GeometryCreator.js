@@ -25,11 +25,11 @@ export default class GeometryCreator {
         Math.random() * (sceneBounds.maxZ - sceneBounds.minZ - 2 * margin) + (sceneBounds.minZ + margin)
       );
     } else {
-      // Fallback to original random position if no bounds available
+      // Fallback to a more visible position in front of the camera
       return new THREE.Vector3(
-        (Math.random() - 0.5) * 6,
-        Math.random() * 3 + 0.5,
-        (Math.random() - 0.5) * 6
+        (Math.random() - 0.5) * 4, // Smaller range for X
+        Math.random() * 2 + 1,     // Y between 1-3 (above ground)
+        (Math.random() - 0.5) * 4  // Smaller range for Z
       );
     }
   }
@@ -44,8 +44,32 @@ export default class GeometryCreator {
     
     let geometry, material, mesh;
     
-    // Generate random position within scene bounds
-    const randomPosition = this.generateRandomPositionWithinBounds();
+    // Generate position - try to place in front of camera for better visibility
+    let randomPosition;
+    if (this.modules?.cameraController) {
+      const activeCamera = this.modules.cameraController.getActiveCamera();
+      if (activeCamera) {
+        // Place object in front of camera at a reasonable distance
+        const cameraDirection = new THREE.Vector3();
+        activeCamera.getWorldDirection(cameraDirection);
+        const distance = 5; // 5 units in front of camera
+        randomPosition = activeCamera.position.clone().add(cameraDirection.multiplyScalar(distance));
+        
+        // Add some randomness to avoid objects stacking
+        randomPosition.x += (Math.random() - 0.5) * 2;
+        randomPosition.y += (Math.random() - 0.5) * 2;
+        randomPosition.z += (Math.random() - 0.5) * 2;
+        
+        // Ensure it's within scene bounds
+        if (this.modules?.floorConstraintManager) {
+          this.modules.floorConstraintManager.enforceFloorConstraint({ position: randomPosition });
+        }
+      } else {
+        randomPosition = this.generateRandomPositionWithinBounds();
+      }
+    } else {
+      randomPosition = this.generateRandomPositionWithinBounds();
+    }
     
     switch (geometryType) {
       case 'cube':
