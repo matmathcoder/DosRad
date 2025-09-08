@@ -36,7 +36,7 @@ export default function useAppEffects({
     // Expose loadSceneData function globally
     window.loadSceneData = handlers.loadSceneData;
 
-    // Load data from localStorage on component mount
+    // Load data from localStorage on component mount (only once)
     handlers.loadFromLocalStorage();
 
     return () => {
@@ -45,5 +45,5 @@ export default function useAppEffects({
       window.removeEventListener('orientationchange', handleResize);
       delete window.loadSceneData;
     };
-  }, [actions, handlers]);
+  }, []); // Remove dependencies to prevent infinite loops
 }

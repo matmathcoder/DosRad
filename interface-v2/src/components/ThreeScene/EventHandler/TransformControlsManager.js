@@ -95,9 +95,13 @@ export class TransformControlsManager {
                 this.modules.collisionSystem.checkCollisions();
               }
               
-              // Enforce floor constraint after dragging
+              // Enforce floor constraint and scene boundaries after dragging
               if (this.transformControlsRef.object) {
-                this.enforceFloorConstraint(this.transformControlsRef.object);
+                if (this.modules?.floorConstraintManager) {
+                  this.modules.floorConstraintManager.enforceFloorConstraint(this.transformControlsRef.object);
+                } else {
+                  this.enforceFloorConstraint(this.transformControlsRef.object);
+                }
               }
               
               if (this.modules.persistenceManager) {

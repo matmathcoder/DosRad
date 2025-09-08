@@ -43,7 +43,7 @@ export default function useAppHandlers({
     if (state.createGeometryFunction && volumeData.geometryType) {
       const geometry = state.createGeometryFunction(volumeData.geometryType);
       
-      // If geometry was created successfully, add it to existing volumes with volume data
+      // If geometry was created successfully, add volume data to userData
       if (geometry) {
         // Add the volume data to the geometry's userData
         geometry.userData = {
@@ -59,15 +59,8 @@ export default function useAppHandlers({
           spectrum: volumeData.spectrum
         };
         
-        // Add to existing volumes for tracking
-        actions.setExistingVolumes(prev => [...prev, {
-          id: geometry.userData.id,
-          type: volumeData.geometryType,
-          name: volumeData.volume,
-          position: geometry.position,
-          visible: geometry.userData.visible !== false, // Include visibility state
-          userData: geometry.userData
-        }]);
+        // Note: onGeometryCreated callback will handle adding to existingVolumes
+        // to prevent duplicates
       }
     }
     
@@ -112,19 +105,8 @@ export default function useAppHandlers({
   const handleGeometrySelect = (geometryType) => {
     if (state.createGeometryFunction) {
       const geometry = state.createGeometryFunction(geometryType);
-      actions.setHasObjects(true);
-      
-      // Add to existing volumes list for geometry panel
-      if (geometry && geometry.userData) {
-        const volumeData = {
-          id: geometry.userData.id || Date.now(),
-          type: geometry.userData.type,
-          position: geometry.position,
-          visible: geometry.userData.visible !== false, // Include visibility state
-          userData: geometry.userData
-        };
-        actions.setExistingVolumes(prev => [...prev, volumeData]);
-      }
+      // Note: onGeometryCreated callback will handle adding to existingVolumes
+      // to prevent duplicates
     }
   };
 

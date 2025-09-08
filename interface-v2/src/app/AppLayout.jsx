@@ -76,6 +76,13 @@ export default function AppLayout({
             
             // Add to existing volumes list for geometry panel and directory
             if (mesh && mesh.userData) {
+              // Check if this geometry already exists to prevent duplicates
+              const existingVolume = state.existingVolumes.find(vol => vol.id === mesh.userData.id);
+              if (existingVolume) {
+                console.log('Geometry already exists in state, skipping duplicate:', mesh.userData.volumeName);
+                return;
+              }
+              
               const volumeData = {
                 id: mesh.userData.id || Date.now(),
                 type: mesh.userData.type,

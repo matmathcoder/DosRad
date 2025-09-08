@@ -479,11 +479,20 @@ export function loadFromLocalStorage(actions) {
       return;
     }
     
+    // Check if we're already restoring to prevent multiple calls
+    if (window.isRestoringFromLocalStorage) {
+      console.log('Already restoring from localStorage, skipping duplicate call');
+      return;
+    }
+    
     // Set a flag to prevent duplicate additions during restoration
     window.isRestoringFromLocalStorage = true;
     
     const savedData = localStorage.getItem('mercurad_scene');
-    if (!savedData) return;
+    if (!savedData) {
+      window.isRestoringFromLocalStorage = false;
+      return;
+    }
     
     const sceneData = JSON.parse(savedData);
     
@@ -492,6 +501,7 @@ export function loadFromLocalStorage(actions) {
       if (sceneData.geometries.length > 20) {
         console.warn(`Detected ${sceneData.geometries.length} volumes, which seems excessive. Clearing localStorage to prevent duplicates.`);
         localStorage.removeItem('mercurad_scene');
+        window.isRestoringFromLocalStorage = false;
         return;
       }
       
@@ -561,7 +571,13 @@ export function loadFromLocalStorage(actions) {
             console.warn('createGeometryFromData not available yet');
           }
         });
+        
+        // Clear the restoration flag after all geometries are created
+        window.isRestoringFromLocalStorage = false;
       }, 200);
+    } else {
+      // No geometries to restore, clear the flag immediately
+      window.isRestoringFromLocalStorage = false;
     }
     
     // Load compositions, sensors, and spectra from localStorage
@@ -577,10 +593,6 @@ export function loadFromLocalStorage(actions) {
       actions.setExistingSpectra(sceneData.spectra);
     }
     
-    // Clear the restoration flag
-    setTimeout(() => {
-      window.isRestoringFromLocalStorage = false;
-    }, 500);
   } catch (error) {
     console.error('Error loading from localStorage:', error);
     // Clear the restoration flag even on error

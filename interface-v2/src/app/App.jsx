@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AuthProvider } from '../contexts/AuthContext';
 import useAppState from './useAppState';
 import useAppHandlers from './useAppHandlers';
@@ -13,42 +13,47 @@ import { getSceneData, loadSceneData, loadFromLocalStorage, loadExampleScene } f
 export default function App() {
   // Use custom hooks for state management and handlers
   const state = useAppState();
+  
+  // Memoize actions object to prevent infinite re-renders
+  // Note: useState setter functions are stable references, so no dependencies needed
+  const actions = useMemo(() => ({
+    setSelectedTool: state.setSelectedTool,
+    setCameraMode: state.setCameraMode,
+    setComponentVisibility: state.setComponentVisibility,
+    setShowVolumeForm: state.setShowVolumeForm,
+    setShowGeometryPanel: state.setShowGeometryPanel,
+    setShowSensorPanel: state.setShowSensorPanel,
+    setShowCompoundVolume: state.setShowCompoundVolume,
+    setShowVolumeProperties: state.setShowVolumeProperties,
+    setShowPhysicsPanel: state.setShowPhysicsPanel,
+    setSelectedVolumeData: state.setSelectedVolumeData,
+    setPhysicsSimulationResults: state.setPhysicsSimulationResults,
+    setIsPhysicsSimulating: state.setIsPhysicsSimulating,
+    setPhysicsSimulationProgress: state.setPhysicsSimulationProgress,
+    setSelectedGeometry: state.setSelectedGeometry,
+    setExistingVolumes: state.setExistingVolumes,
+    setExistingSensors: state.setExistingSensors,
+    setCreateGeometryFunction: state.setCreateGeometryFunction,
+    setShowHelp: state.setShowHelp,
+    setHasObjects: state.setHasObjects,
+    setHasSelectedObject: state.setHasSelectedObject,
+    setWindowSize: state.setWindowSize,
+    setShowCompositionPanel: state.setShowCompositionPanel,
+    setShowLineSpectrumPanel: state.setShowLineSpectrumPanel,
+    setShowGroupSpectrumPanel: state.setShowGroupSpectrumPanel,
+    setCurrentComposition: state.setCurrentComposition,
+    setCurrentSpectrum: state.setCurrentSpectrum,
+    setExistingCompositions: state.setExistingCompositions,
+    setExistingSpectra: state.setExistingSpectra
+  }), []); // Empty dependency array since useState setters are stable
+  
   const handlers = useAppHandlers({
     state,
-    actions: {
-      setSelectedTool: state.setSelectedTool,
-      setCameraMode: state.setCameraMode,
-      setComponentVisibility: state.setComponentVisibility,
-      setShowVolumeForm: state.setShowVolumeForm,
-      setShowGeometryPanel: state.setShowGeometryPanel,
-      setShowSensorPanel: state.setShowSensorPanel,
-      setShowCompoundVolume: state.setShowCompoundVolume,
-      setShowVolumeProperties: state.setShowVolumeProperties,
-      setShowPhysicsPanel: state.setShowPhysicsPanel,
-      setSelectedVolumeData: state.setSelectedVolumeData,
-      setPhysicsSimulationResults: state.setPhysicsSimulationResults,
-      setIsPhysicsSimulating: state.setIsPhysicsSimulating,
-      setPhysicsSimulationProgress: state.setPhysicsSimulationProgress,
-      setSelectedGeometry: state.setSelectedGeometry,
-      setExistingVolumes: state.setExistingVolumes,
-      setExistingSensors: state.setExistingSensors,
-      setCreateGeometryFunction: state.setCreateGeometryFunction,
-      setShowHelp: state.setShowHelp,
-      setHasObjects: state.setHasObjects,
-      setHasSelectedObject: state.setHasSelectedObject,
-      setWindowSize: state.setWindowSize,
-      setShowCompositionPanel: state.setShowCompositionPanel,
-      setShowLineSpectrumPanel: state.setShowLineSpectrumPanel,
-      setShowGroupSpectrumPanel: state.setShowGroupSpectrumPanel,
-      setCurrentComposition: state.setCurrentComposition,
-      setCurrentSpectrum: state.setCurrentSpectrum,
-      setExistingCompositions: state.setExistingCompositions,
-      setExistingSpectra: state.setExistingSpectra
-    }
+    actions
   });
 
   // Add additional handlers that need access to data functions
-  const enhancedHandlers = {
+  const enhancedHandlers = useMemo(() => ({
     ...handlers,
     getSceneData: () => getSceneData(state),
     loadSceneData: (sceneData) => loadSceneData(sceneData, state, {
@@ -241,15 +246,15 @@ export default function App() {
         // For other items, show appropriate panel
       }
     }
-  };
+  }), [handlers, state]); // Depend on handlers and state
 
   // Use custom hook for effects
   useAppEffects({
     state,
     actions: {
-      setShowHelp: state.setShowHelp,
-      setComponentVisibility: state.setComponentVisibility,
-      setWindowSize: state.setWindowSize
+      setShowHelp: actions.setShowHelp,
+      setComponentVisibility: actions.setComponentVisibility,
+      setWindowSize: actions.setWindowSize
     },
     handlers: enhancedHandlers
   });

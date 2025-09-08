@@ -12,6 +12,28 @@ export default class GeometryCreator {
     this.modules = modules;
   }
   
+  generateRandomPositionWithinBounds() {
+    // Get scene bounds from SceneManager
+    const sceneBounds = this.modules?.sceneManager?.getSceneBounds();
+    
+    if (sceneBounds) {
+      // Generate position within scene bounds with some margin
+      const margin = 1; // 1 unit margin from walls
+      return new THREE.Vector3(
+        Math.random() * (sceneBounds.maxX - sceneBounds.minX - 2 * margin) + (sceneBounds.minX + margin),
+        Math.random() * (sceneBounds.maxY - sceneBounds.minY - 2 * margin) + (sceneBounds.minY + margin),
+        Math.random() * (sceneBounds.maxZ - sceneBounds.minZ - 2 * margin) + (sceneBounds.minZ + margin)
+      );
+    } else {
+      // Fallback to original random position if no bounds available
+      return new THREE.Vector3(
+        (Math.random() - 0.5) * 6,
+        Math.random() * 3 + 0.5,
+        (Math.random() - 0.5) * 6
+      );
+    }
+  }
+  
   createGeometry(geometryType) {
     if (!this.refs.sceneRef.current) return null;
     
@@ -22,12 +44,8 @@ export default class GeometryCreator {
     
     let geometry, material, mesh;
     
-    // Generate random position
-    const randomPosition = new THREE.Vector3(
-      (Math.random() - 0.5) * 6,
-      Math.random() * 3 + 0.5,
-      (Math.random() - 0.5) * 6
-    );
+    // Generate random position within scene bounds
+    const randomPosition = this.generateRandomPositionWithinBounds();
     
     switch (geometryType) {
       case 'cube':
@@ -194,6 +212,11 @@ export default class GeometryCreator {
       sensorData.coordinates.y,
       sensorData.coordinates.z
     );
+    
+    // Enforce scene boundaries after setting position
+    if (this.modules?.floorConstraintManager) {
+      this.modules.floorConstraintManager.enforceFloorConstraint(sensor);
+    }
     
     // Add sensor-specific properties
     sensor.userData = {
@@ -421,6 +444,11 @@ export default class GeometryCreator {
     // Set position from data
     if (objData.position) {
       mesh.position.set(objData.position.x || 0, objData.position.y || 0, objData.position.z || 0);
+      
+      // Enforce scene boundaries after setting position
+      if (this.modules?.floorConstraintManager) {
+        this.modules.floorConstraintManager.enforceFloorConstraint(mesh);
+      }
     }
     
     // Set rotation if available
@@ -593,8 +621,13 @@ export default class GeometryCreator {
       mesh = new THREE.Mesh(geometry, material);
     }
     
-    // Set position to drop location
+    // Set position to drop location and enforce boundaries
     mesh.position.copy(position);
+    
+    // Enforce scene boundaries after setting position
+    if (this.modules?.floorConstraintManager) {
+      this.modules.floorConstraintManager.enforceFloorConstraint(mesh);
+    }
     
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -669,6 +702,11 @@ export default class GeometryCreator {
     
     // Offset the duplicated mesh slightly to avoid overlap
     duplicatedMesh.position.x += 0.5;
+    
+    // Enforce scene boundaries after offsetting position
+    if (this.modules?.floorConstraintManager) {
+      this.modules.floorConstraintManager.enforceFloorConstraint(duplicatedMesh);
+    }
     duplicatedMesh.position.z += 0.5;
     
     // Copy shadow properties

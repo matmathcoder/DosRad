@@ -253,6 +253,9 @@ export default class EventHandler {
           // Scale the object
           object.scale.multiplyScalar(increaseRatio);
           
+          // Enforce scene boundaries after scaling
+          this.floorConstraintManager.enforceFloorConstraint(object);
+          
           // Update all vertex helpers positions
           this.vertexHelpersManager.updateVertexHelpersPositions(object);
         } else if (this.vertexHelpersManager.resizeMode === 'edit') {

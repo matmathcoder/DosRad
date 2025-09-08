@@ -90,10 +90,20 @@ export default class SceneManager {
   setupScene() {
     const sceneGroup = this.refs.sceneGroupRef.current;
     
-    // Add grid helper to the rotatable group
-    sceneGroup.add(new THREE.GridHelper(10, 10, 0x888888, 0x444444));
+    // Define scene boundaries
+    this.sceneBounds = {
+      minX: -10,
+      maxX: 10,
+      minY: -2,
+      maxY: 15,
+      minZ: -10,
+      maxZ: 10
+    };
     
-    // Add a ground plane for shadows to the rotatable group
+    // Add grid helper to the rotatable group (larger grid to show boundaries)
+    sceneGroup.add(new THREE.GridHelper(20, 20, 0x888888, 0x444444));
+    
+    // Add a ground plane for shadows
     const groundGeometry = new THREE.PlaneGeometry(20, 20);
     const groundMaterial = new THREE.MeshLambertMaterial({ 
       color: 0x333333, 
@@ -105,6 +115,90 @@ export default class SceneManager {
     ground.position.y = -0.01; // Slightly below grid
     ground.receiveShadow = true;
     sceneGroup.add(ground);
+    
+    // Add scene boundary walls
+    this.createSceneBoundaries(sceneGroup);
+  }
+  
+  createSceneBoundaries(sceneGroup) {
+    const wallMaterial = new THREE.MeshLambertMaterial({ 
+      color: 0x2a2a2a, 
+      transparent: true, 
+      opacity: 0.3,
+      side: THREE.DoubleSide
+    });
+    
+    const bounds = this.sceneBounds;
+    
+    // Floor
+    const floorGeometry = new THREE.PlaneGeometry(20, 20);
+    const floor = new THREE.Mesh(floorGeometry, wallMaterial.clone());
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = bounds.minY;
+    floor.receiveShadow = true;
+    sceneGroup.add(floor);
+    
+    // Ceiling
+    const ceilingGeometry = new THREE.PlaneGeometry(20, 20);
+    const ceiling = new THREE.Mesh(ceilingGeometry, wallMaterial.clone());
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = bounds.maxY;
+    sceneGroup.add(ceiling);
+    
+    // Left wall (negative X)
+    const leftWallGeometry = new THREE.PlaneGeometry(20, bounds.maxY - bounds.minY);
+    const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial.clone());
+    leftWall.rotation.y = Math.PI / 2;
+    leftWall.position.set(bounds.minX, (bounds.maxY + bounds.minY) / 2, 0);
+    sceneGroup.add(leftWall);
+    
+    // Right wall (positive X)
+    const rightWallGeometry = new THREE.PlaneGeometry(20, bounds.maxY - bounds.minY);
+    const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial.clone());
+    rightWall.rotation.y = -Math.PI / 2;
+    rightWall.position.set(bounds.maxX, (bounds.maxY + bounds.minY) / 2, 0);
+    sceneGroup.add(rightWall);
+    
+    // Back wall (negative Z)
+    const backWallGeometry = new THREE.PlaneGeometry(20, bounds.maxY - bounds.minY);
+    const backWall = new THREE.Mesh(backWallGeometry, wallMaterial.clone());
+    backWall.position.set(0, (bounds.maxY + bounds.minY) / 2, bounds.minZ);
+    sceneGroup.add(backWall);
+    
+    // Front wall (positive Z)
+    const frontWallGeometry = new THREE.PlaneGeometry(20, bounds.maxY - bounds.minY);
+    const frontWall = new THREE.Mesh(frontWallGeometry, wallMaterial.clone());
+    frontWall.rotation.y = Math.PI;
+    frontWall.position.set(0, (bounds.maxY + bounds.minY) / 2, bounds.maxZ);
+    sceneGroup.add(frontWall);
+    
+    // Store boundary references for collision detection
+    this.boundaryWalls = [floor, ceiling, leftWall, rightWall, backWall, frontWall];
+  }
+  
+  // Method to check if a position is within scene bounds
+  isPositionWithinBounds(position) {
+    const bounds = this.sceneBounds;
+    return (
+      position.x >= bounds.minX && position.x <= bounds.maxX &&
+      position.y >= bounds.minY && position.y <= bounds.maxY &&
+      position.z >= bounds.minZ && position.z <= bounds.maxZ
+    );
+  }
+  
+  // Method to clamp a position to scene bounds
+  clampPositionToBounds(position) {
+    const bounds = this.sceneBounds;
+    return {
+      x: Math.max(bounds.minX, Math.min(bounds.maxX, position.x)),
+      y: Math.max(bounds.minY, Math.min(bounds.maxY, position.y)),
+      z: Math.max(bounds.minZ, Math.min(bounds.maxZ, position.z))
+    };
+  }
+  
+  // Method to get scene bounds for other modules
+  getSceneBounds() {
+    return { ...this.sceneBounds };
   }
   
   setupEventListeners() {
@@ -136,6 +230,14 @@ export default class SceneManager {
   cleanup() {
     if (this.onResize) {
       window.removeEventListener('resize', this.onResize);
+    }
+    
+    // Dispose of boundary walls
+    if (this.boundaryWalls) {
+      this.boundaryWalls.forEach(wall => {
+        if (wall.geometry) wall.geometry.dispose();
+        if (wall.material) wall.material.dispose();
+      });
     }
     
     // Dispose of geometries and materials
