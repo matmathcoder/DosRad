@@ -13,6 +13,7 @@ export default function useAppState() {
   const [showCompoundVolume, setShowCompoundVolume] = useState(false);
   const [showVolumeProperties, setShowVolumeProperties] = useState(false);
   const [showPhysicsPanel, setShowPhysicsPanel] = useState(false);
+  const [showDecaySimulator, setShowDecaySimulator] = useState(false);
   
   // Data states
   const [selectedVolumeData, setSelectedVolumeData] = useState(null);
@@ -50,10 +51,8 @@ export default function useAppState() {
 
   // Layout configuration state - Load from localStorage on initialization
   const [layoutConfig, setLayoutConfig] = useState(() => {
-    console.log('Initializing layout config...');
     try {
       const config = loadLayoutConfig();
-      console.log('Layout config initialized:', config);
       return config;
     } catch (error) {
       console.warn('Failed to load layout config, using default:', error);
@@ -101,7 +100,6 @@ export default function useAppState() {
 
   // Keep hasObjects in sync with existingVolumes
   useEffect(() => {
-    console.log('existingVolumes changed:', existingVolumes.length, 'volumes');
     setHasObjects(existingVolumes.length > 0);
   }, [existingVolumes]);
 
@@ -119,6 +117,8 @@ export default function useAppState() {
     setShowVolumeProperties,
     showPhysicsPanel,
     setShowPhysicsPanel,
+    showDecaySimulator,
+    setShowDecaySimulator,
     
     // Data states
     selectedVolumeData,

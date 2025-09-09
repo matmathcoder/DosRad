@@ -23,6 +23,13 @@ export default class EventHandler {
     this.keyState = {};
     this.modules = null; // Will be set by ThreeScene
     
+    // Transform feedback state
+    this.transformFeedbackVisible = false;
+    this.transformObject = null;
+    this.transformFeedbackType = 'scaling'; // 'scaling', 'position', 'rotation', 'all'
+    this.lastTransformUpdate = 0;
+    this.transformUpdateThrottle = 16; // ~60fps
+    
     // Initialize managers
     this.transformControlsManager = new TransformControlsManager(refs, state, callbacks);
     this.vertexHelpersManager = new VertexHelpersManager(refs, state, callbacks);
@@ -122,6 +129,31 @@ export default class EventHandler {
   }
   
   update() {
+    // Update transform feedback if visible - check for transform changes
+    if (this.transformFeedbackVisible && this.transformObject) {
+      const now = performance.now();
+      if (now - this.lastTransformUpdate > this.transformUpdateThrottle) {
+        // Check if the object is currently being transformed
+        const isCurrentlyTransforming = this.transformControlsManager.isScaling || 
+                                       this.transformControlsManager.isDragging ||
+                                       (this.vertexHelpersManager.SELECTED && this.vertexHelpersManager.resizeMode === 'resize') ||
+                                       this.rotationManager.isRotating;
+        
+        if (isCurrentlyTransforming) {
+          // Force a React state update by calling the callback
+          if (this.callbacks.onTransformFeedbackUpdate) {
+            this.callbacks.onTransformFeedbackUpdate(this.transformObject, this.transformFeedbackType);
+          }
+        }
+        this.lastTransformUpdate = now;
+      }
+    }
+
+    // Also check transform controls for updates
+    if (this.transformControlsManager.checkAndUpdateTransformFeedback) {
+      this.transformControlsManager.checkAndUpdateTransformFeedback();
+    }
+    
     // Handle continuous keyboard movement
     const targetMesh = this.refs.selectedGeometryRef.current;
     if (targetMesh && this.transformControlsManager.transformControlsRef && !this.transformControlsManager.transformControlsRef.dragging) {
@@ -256,6 +288,13 @@ export default class EventHandler {
           // Scale the object
           object.scale.multiplyScalar(increaseRatio);
           
+          // Show scaling feedback during vertex helper scaling
+          if (!this.transformFeedbackVisible) {
+            this.showTransformFeedback(object, 'scaling');
+          } else {
+            this.updateTransformFeedback(object, 'scaling');
+          }
+          
           // Enforce scene boundaries after scaling
           this.floorConstraintManager.enforceFloorConstraint(object);
           
@@ -280,6 +319,23 @@ export default class EventHandler {
       if (result.userData?.type === 'vertex-helper' && !metVertex) metVertex = result;
     }
     
+    // Check if mouse is over the resize area (expanded bounding box)
+    let metResizePlane = false;
+    if (this.state.selectedToolRef.current === 'resize' && object) {
+      // Create a larger bounding box for easier intersection
+      const boundingBox = new THREE.Box3().setFromObject(object);
+      const size = boundingBox.getSize(new THREE.Vector3());
+      const center = boundingBox.getCenter(new THREE.Vector3());
+      
+      // Expand the bounding box by 50% for easier intersection
+      const expandedSize = size.clone().multiplyScalar(1.5);
+      const expandedBox = new THREE.Box3().setFromCenterAndSize(center, expandedSize);
+      
+      // Check if ray intersects with the expanded bounding box
+      const boxIntersection = new THREE.Vector3();
+      metResizePlane = raycaster.ray.intersectBox(expandedBox, boxIntersection);
+    }
+    
     if (metVertex) {
       if (this.vertexHelpersManager.INTERSECTED !== metVertex) this.vertexHelpersManager.INTERSECTED = metVertex;
       document.body.style.cursor = 'move';
@@ -290,7 +346,8 @@ export default class EventHandler {
     
     // Show/hide vertex helpers based on hover (only for resize tool)
     if (this.state.selectedToolRef.current === 'resize') {
-      if ((metVertex || metObject) && !this.vertexHelpersManager.mouseDown) {
+      // Keep vertex helpers visible when hovering over object, vertex helpers, or resize plane
+      if ((metVertex || metObject || metResizePlane) && !this.vertexHelpersManager.mouseDown) {
         object.material.opacity = 0.5;
         this.vertexHelpersManager.showVertexHelpers();
       } else {
@@ -466,6 +523,11 @@ export default class EventHandler {
       }
       this.vertexHelpersManager.SELECTED = null;
       document.body.style.cursor = 'auto';
+      
+      // Hide transform feedback when vertex helper interaction ends
+      if (this.transformFeedbackVisible) {
+        this.hideTransformFeedback();
+      }
     }
   }
   
@@ -567,6 +629,47 @@ export default class EventHandler {
   // Access to selected objects for external use
   get selectedObjects() {
     return this.selectionManager.selectedObjects;
+  }
+  
+  // Transform feedback methods
+  showTransformFeedback(object, feedbackType = 'scaling') {
+    this.transformFeedbackVisible = true;
+    this.transformObject = object;
+    this.transformFeedbackType = feedbackType;
+    // Notify parent component to show transform feedback UI
+    if (this.callbacks.onTransformFeedbackShow) {
+      this.callbacks.onTransformFeedbackShow(object, feedbackType);
+    }
+  }
+  
+  hideTransformFeedback() {
+    this.transformFeedbackVisible = false;
+    this.transformObject = null;
+    this.transformFeedbackType = 'scaling';
+    // Notify parent component to hide transform feedback UI
+    if (this.callbacks.onTransformFeedbackHide) {
+      this.callbacks.onTransformFeedbackHide();
+    }
+  }
+  
+  updateTransformFeedback(object, feedbackType = null) {
+    // Notify parent component to update transform feedback UI
+    if (this.callbacks.onTransformFeedbackUpdate) {
+      this.callbacks.onTransformFeedbackUpdate(object, feedbackType || this.transformFeedbackType);
+    }
+  }
+
+  // Legacy methods for backward compatibility
+  showScalingFeedback(object) {
+    this.showTransformFeedback(object, 'scaling');
+  }
+  
+  hideScalingFeedback() {
+    this.hideTransformFeedback();
+  }
+  
+  updateScalingFeedback(object) {
+    this.updateTransformFeedback(object, 'scaling');
   }
   
   cleanup() {

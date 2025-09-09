@@ -111,7 +111,6 @@ export default class IndicatorManager {
     }
     mesh.userData.indicators.push(indicator);
     
-    console.log(`Indicator created and added to scene. Total indicators for this mesh: ${mesh.userData.indicators.length}`);
     
     return indicator;
   }
@@ -135,17 +134,10 @@ export default class IndicatorManager {
     const sceneChildren = this.refs.sceneGroupRef.current.children.slice();
     let removedCount = 0;
     
-    console.log(`Checking ${sceneChildren.length} scene children for indicators...`);
     
     sceneChildren.forEach((child, index) => {
-      console.log(`Child ${index}:`, {
-        type: child.type,
-        isIndicator: child.userData?.isIndicator,
-        userData: child.userData
-      });
       
       if (child.userData?.isIndicator) {
-        console.log(`Removing indicator:`, child);
         this.refs.sceneGroupRef.current.remove(child);
         if (child.geometry) child.geometry.dispose();
         if (child.material) child.material.dispose();
@@ -154,9 +146,7 @@ export default class IndicatorManager {
     });
     
     if (removedCount > 0) {
-      console.log(`Cleaned up ${removedCount} orphaned indicators from scene`);
     } else {
-      console.log('No indicators found to clean up');
     }
   }
   

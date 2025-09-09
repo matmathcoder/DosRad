@@ -155,9 +155,17 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Vite dev server
     "http://127.0.0.1:5173",
+    "http://localhost:3000",  # Alternative dev server
+    "http://127.0.0.1:3000",
+    "http://localhost:8080",  # Alternative dev server
+    "http://127.0.0.1:8080",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# Allow all origins in development (for testing)
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
 
 # Custom user model
 AUTH_USER_MODEL = 'users.User'

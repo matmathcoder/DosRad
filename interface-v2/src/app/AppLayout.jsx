@@ -1,24 +1,29 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { MousePointer2, Cctv } from 'lucide-react';
 import ThreeScene from '../components/ThreeScene';
 import Navigation from '../components/Bars/Navbar/Navigation';
-import GeometrySelector from '../components/Panels/GeometrySelector';
 import Sidebar from '../components/Bars/SideBar';
-import VolumeForm from '../components/Navigation/Edit/VolumeForm/VolumeForm';
-import CompositionPanel from '../components/Navigation/Edit/VolumeForm/CompositionPanel';
-import LineSpectrumPanel from '../components/Navigation/Edit/VolumeForm/LineSpectrumPanel';
-import GroupSpectrumPanel from '../components/Navigation/Edit/VolumeForm/GroupSpectrumPanel';
-import GeometryPanel from '../components/Navigation/Inspector/GeometryPanel';
-import SensorPanel from '../components/Navigation/Edit/Insert/SensorPanel';
-import CompoundVolume from '../components/Navigation/Edit/Insert/CompoundVolume';
-import HelpOverlay from '../components/Panels/HelpOverlay';
-import ContextualHelp from '../components/Panels/ContextualHelp';
 import BottomBar from '../components/Bars/BottomBar';
-import RotationSliders from '../components/Panels/RotationSliders';
+import GeometrySelector from '../components/Panels/GeometrySelector';
 import Directory from '../components/Bars/Directory/Directory';
-import VolumePropertiesPanel from '../components/Panels/VolumePropertiesPanel';
-import PhysicsControlPanel from '../components/Panels/PhysicsControlPanel';
 import { cycleLayout } from './layoutUtils';
+
+// Lazy load components that aren't immediately visible
+const VolumeForm = lazy(() => import('../components/Navigation/Edit/VolumeForm/VolumeForm'));
+const CompositionPanel = lazy(() => import('../components/Navigation/Edit/VolumeForm/CompositionPanel'));
+const LineSpectrumPanel = lazy(() => import('../components/Navigation/Edit/VolumeForm/LineSpectrumPanel'));
+const GroupSpectrumPanel = lazy(() => import('../components/Navigation/Edit/VolumeForm/GroupSpectrumPanel'));
+const GeometryPanel = lazy(() => import('../components/Navigation/Inspector/GeometryPanel'));
+const SensorPanel = lazy(() => import('../components/Navigation/Edit/Insert/SensorPanel'));
+const CompoundVolume = lazy(() => import('../components/Navigation/Edit/Insert/CompoundVolume'));
+const HelpOverlay = lazy(() => import('../components/Panels/HelpOverlay'));
+const ContextualHelp = lazy(() => import('../components/Panels/ContextualHelp'));
+const RotationSliders = lazy(() => import('../components/Panels/RotationSliders'));
+const VolumePropertiesPanel = lazy(() => import('../components/Panels/VolumePropertiesPanel'));
+const PhysicsControlPanel = lazy(() => import('../components/Panels/PhysicsControlPanel'));
+const DecaySimulator = lazy(() => import('../components/DecaySimulator/DecaySimulator'));
+
+// No loading spinner - components load silently
 
 /**
  * App Layout Component
@@ -89,12 +94,28 @@ export default function AppLayout({
             onShowSensorPanel={handlers.handleShowSensorPanel}
             onShowCompoundVolume={handlers.handleShowCompoundVolume}
             onShowPhysicsPanel={() => state.setShowPhysicsPanel(true)}
+            onShowDecaySimulator={() => state.setShowDecaySimulator(true)}
+            onSaveToComputer={handlers.handleSaveToComputer}
+            onSaveToCloud={handlers.handleSaveToCloud}
+            onLoadFromComputer={handlers.handleLoadFromComputer}
+            onLoadFromCloud={handlers.handleLoadFromCloud}
+            onCreateNewProject={handlers.handleCreateNewProject}
+            onExportImage={handlers.handleExportImage}
             onToggleComponentVisibility={handlers.handleToggleComponentVisibility}
             sceneData={handlers.getSceneData()}
             selectedVolume={state.selectedGeometry}
             onMeshValidate={handlers.handleMeshValidate}
             onComputationComplete={handlers.handleComputationComplete}
             onSceneGenerated={handlers.handleSceneGenerated}
+            onShowCompositionsInspector={() => state.setShowCompositionsInspector(true)}
+            onShowSourcesInspector={() => state.setShowSourcesInspector(true)}
+            onShowSensorsInspector={() => state.setShowSensorsInspector(true)}
+            compositions={state.existingCompositions}
+            sources={[]}
+            sensors={state.existingSensors}
+            onShowCompositionPanel={() => state.setShowCompositionPanel(true)}
+            existingCompositions={state.existingCompositions}
+            existingSensors={state.existingSensors}
           />
         </div>
         
@@ -201,72 +222,90 @@ export default function AppLayout({
         )}
 
         {/* Geometry Panel - Draggable */}
-        <GeometryPanel 
-          isOpen={state.showGeometryPanel}
-          onClose={handlers.handleGeometryPanelClose}
-          selectedGeometry={state.selectedGeometry}
-          existingVolumes={state.existingVolumes}
-        />
+        {state.showGeometryPanel && (
+          <GeometryPanel 
+            isOpen={state.showGeometryPanel}
+            onClose={handlers.handleGeometryPanelClose}
+            selectedGeometry={state.selectedGeometry}
+            existingVolumes={state.existingVolumes}
+          />
+        )}
 
         {/* Sensor Panel - Draggable */}
-        <SensorPanel
-          isVisible={state.showSensorPanel}
-          onClose={handlers.handleSensorPanelClose}
-          onValidate={handlers.handleSensorValidate}
-          onSaveAs={handlers.handleSensorSave}
-          existingSensors={state.existingSensors}
-          existingCompositions={state.existingCompositions}
-        />
+        {state.showSensorPanel && (
+          <SensorPanel
+            isVisible={state.showSensorPanel}
+            onClose={handlers.handleSensorPanelClose}
+            onValidate={handlers.handleSensorValidate}
+            onSaveAs={handlers.handleSensorSave}
+            existingSensors={state.existingSensors}
+            existingCompositions={state.existingCompositions}
+          />
+        )}
 
         {/* Compound Volume Panel - Draggable */}
-        <CompoundVolume
-          isVisible={state.showCompoundVolume}
-          onClose={handlers.handleCompoundVolumeClose}
-          onImport={handlers.handleCompoundVolumeImport}
-          onCancel={handlers.handleCompoundVolumeClose}
-          existingVolumes={state.existingVolumes}
-          existingCompositions={state.existingCompositions}
-          existingSpectra={state.existingSpectra}
-        />
+        {state.showCompoundVolume && (
+          <CompoundVolume
+            isVisible={state.showCompoundVolume}
+            onClose={handlers.handleCompoundVolumeClose}
+            onImport={handlers.handleCompoundVolumeImport}
+            onCancel={handlers.handleCompoundVolumeClose}
+            existingVolumes={state.existingVolumes}
+            existingCompositions={state.existingCompositions}
+            existingSpectra={state.existingSpectra}
+          />
+        )}
 
         {/* Volume Properties Panel - Draggable */}
-        <VolumePropertiesPanel
-          isVisible={state.showVolumeProperties}
-          onClose={() => state.setShowVolumeProperties(false)}
-          volumeData={state.selectedVolumeData}
-          onEdit={() => {
-            // Open geometry panel for editing
-            state.setShowGeometryPanel(true);
-            state.setShowVolumeProperties(false);
-          }}
-          onDelete={() => {
-            // Delete the volume
-            if (state.selectedVolumeData && state.selectedVolumeData.userData) {
-              if (window.removeGeometry) {
-                window.removeGeometry(state.selectedVolumeData.userData.id);
+        {state.showVolumeProperties && (
+          <VolumePropertiesPanel
+            isVisible={state.showVolumeProperties}
+            onClose={() => state.setShowVolumeProperties(false)}
+            volumeData={state.selectedVolumeData}
+            onEdit={() => {
+              // Open geometry panel for editing
+              state.setShowGeometryPanel(true);
+              state.setShowVolumeProperties(false);
+            }}
+            onDelete={() => {
+              // Delete the volume
+              if (state.selectedVolumeData && state.selectedVolumeData.userData) {
+                if (window.removeGeometry) {
+                  window.removeGeometry(state.selectedVolumeData.userData.id);
+                }
               }
-            }
-            state.setShowVolumeProperties(false);
-          }}
-          onCopy={() => {
-            // Copy volume properties to clipboard
-            if (state.selectedVolumeData) {
-              const propertiesText = JSON.stringify(state.selectedVolumeData, null, 2);
-              navigator.clipboard.writeText(propertiesText);
-            }
-          }}
-        />
+              state.setShowVolumeProperties(false);
+            }}
+            onCopy={() => {
+              // Copy volume properties to clipboard
+              if (state.selectedVolumeData) {
+                const propertiesText = JSON.stringify(state.selectedVolumeData, null, 2);
+                navigator.clipboard.writeText(propertiesText);
+              }
+            }}
+          />
+        )}
 
         {/* Physics Control Panel - Draggable */}
-        <PhysicsControlPanel
-          isVisible={state.showPhysicsPanel}
-          onClose={handlers.handlePhysicsPanelClose}
-          onStartSimulation={handlers.handleStartPhysicsSimulation}
-          onStopSimulation={handlers.handleStopPhysicsSimulation}
-          simulationResults={state.physicsSimulationResults}
-          isSimulating={state.isPhysicsSimulating}
-          simulationProgress={state.physicsSimulationProgress}
-        />
+        {state.showPhysicsPanel && (
+          <PhysicsControlPanel
+            isVisible={state.showPhysicsPanel}
+            onClose={handlers.handlePhysicsPanelClose}
+            onStartSimulation={handlers.handleStartPhysicsSimulation}
+            onStopSimulation={handlers.handleStopPhysicsSimulation}
+            simulationResults={state.physicsSimulationResults}
+            isSimulating={state.isPhysicsSimulating}
+            simulationProgress={state.physicsSimulationProgress}
+          />
+        )}
+
+        {/* Decay Simulator - Floating modal */}
+        {state.showDecaySimulator && (
+          <DecaySimulator
+            isVisible={state.showDecaySimulator}
+            onClose={() => state.setShowDecaySimulator(false)}
+          />
+        )}
 
         {/* Contextual Help - Draggable floating component */}
         {state.componentVisibility.contextualHelp && (
@@ -291,35 +330,41 @@ export default function AppLayout({
       </div>
 
       {/* Floating Panels - Draggable across entire scene */}
-      <CompositionPanel
-        isVisible={state.showCompositionPanel}
-        onClose={() => state.setShowCompositionPanel(false)}
-        onUse={handlers.handleCompositionUse}
-        onStore={handlers.handleCompositionStore}
-        initialComposition={state.currentComposition}
-        existingCompositions={state.existingCompositions}
-      />
+      {state.showCompositionPanel && (
+        <CompositionPanel
+          isVisible={state.showCompositionPanel}
+          onClose={() => state.setShowCompositionPanel(false)}
+          onUse={handlers.handleCompositionUse}
+          onStore={handlers.handleCompositionStore}
+          initialComposition={state.currentComposition}
+          existingCompositions={state.existingCompositions}
+        />
+      )}
 
-      <LineSpectrumPanel
-        isVisible={state.showLineSpectrumPanel}
-        onClose={() => state.setShowLineSpectrumPanel(false)}
-        onValidate={handlers.handleSpectrumValidate}
-        onSaveAs={handlers.handleSpectrumSaveAs}
-        initialSpectrum={state.currentSpectrum?.type === 'line' ? state.currentSpectrum : null}
-        existingSpectra={state.existingSpectra.filter(spec => spec.type === 'line')}
-      />
+      {state.showLineSpectrumPanel && (
+        <LineSpectrumPanel
+          isVisible={state.showLineSpectrumPanel}
+          onClose={() => state.setShowLineSpectrumPanel(false)}
+          onValidate={handlers.handleSpectrumValidate}
+          onSaveAs={handlers.handleSpectrumSaveAs}
+          initialSpectrum={state.currentSpectrum?.type === 'line' ? state.currentSpectrum : null}
+          existingSpectra={state.existingSpectra.filter(spec => spec.type === 'line')}
+        />
+      )}
 
-      <GroupSpectrumPanel
-        isVisible={state.showGroupSpectrumPanel}
-        onClose={() => state.setShowGroupSpectrumPanel(false)}
-        onValidate={handlers.handleSpectrumValidate}
-        onSaveAs={handlers.handleSpectrumSaveAs}
-        initialSpectrum={state.currentSpectrum?.type === 'group' ? state.currentSpectrum : null}
-        existingSpectra={state.existingSpectra.filter(spec => spec.type === 'group')}
-      />
+      {state.showGroupSpectrumPanel && (
+        <GroupSpectrumPanel
+          isVisible={state.showGroupSpectrumPanel}
+          onClose={() => state.setShowGroupSpectrumPanel(false)}
+          onValidate={handlers.handleSpectrumValidate}
+          onSaveAs={handlers.handleSpectrumSaveAs}
+          initialSpectrum={state.currentSpectrum?.type === 'group' ? state.currentSpectrum : null}
+          existingSpectra={state.existingSpectra.filter(spec => spec.type === 'group')}
+        />
+      )}
 
       {/* Help Overlay */}
-      {state.componentVisibility.helpOverlay && (
+      {state.componentVisibility.helpOverlay && state.showHelp && (
         <HelpOverlay 
           isVisible={state.showHelp}
           onClose={() => state.setShowHelp(false)}

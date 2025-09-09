@@ -124,7 +124,6 @@ export default class GeometryManager {
     });
     
     const index = this.refs.geometriesRef.current.indexOf(mesh);
-    console.log('Mesh index in geometries array:', index);
     
     if (index > -1) {
       // Store the geometry ID before deletion for callback
@@ -132,7 +131,6 @@ export default class GeometryManager {
       
       // Check if this is the currently selected geometry and clear selection
       if (this.refs.selectedGeometryRef.current === mesh) {
-        console.log('Clearing selection - deleted object was selected');
         this.refs.selectedGeometryRef.current = null;
         
         // Clear transform controls if they're attached to this mesh
@@ -156,13 +154,9 @@ export default class GeometryManager {
         }
       }
       
-      console.log('Removing mesh from geometries array...');
       this.refs.geometriesRef.current.splice(index, 1);
-      console.log('Geometries count after removal:', this.refs.geometriesRef.current.length);
       
-      console.log('Removing mesh from scene group...');
       this.refs.sceneGroupRef.current.remove(mesh);
-      console.log('Scene group children count after removal:', this.refs.sceneGroupRef.current.children.length);
       
       // Remove visual indicators
       this.indicatorManager.removeObjectIndicators(mesh);

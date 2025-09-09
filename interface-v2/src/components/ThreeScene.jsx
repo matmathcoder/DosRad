@@ -11,6 +11,7 @@ import EventHandler from './ThreeScene/EventHandler/EventHandler';
 import PhysicsSimulator from './ThreeScene/PhysicsSimulator/PhysicsSimulator';
 import ContextMenu from './ThreeScene/ContextMenu';
 import MeshPropertiesPanel from './Panels/MeshPropertiesPanel';
+import ScalingFeedback from './ThreeScene/ScalingFeedback';
 
 export default function ThreeScene({ 
   selectedTool, 
@@ -60,6 +61,11 @@ export default function ThreeScene({
   const [geometryPanelVisible, setGeometryPanelVisible] = useState(false);
   const [volumePanelVisible, setVolumePanelVisible] = useState(false);
   const [meshPropertiesVisible, setMeshPropertiesVisible] = useState(false);
+  
+  // Transform feedback state
+  const [transformFeedbackVisible, setTransformFeedbackVisible] = useState(false);
+  const [transformObject, setTransformObject] = useState(null);
+  const [transformFeedbackType, setTransformFeedbackType] = useState('scaling');
   
   // Tool ref
   const selectedToolRef = useRef('select');
@@ -161,6 +167,37 @@ export default function ThreeScene({
       onOpenMeshProperties: (object) => {
         setMeshPropertiesVisible(true);
         setContextMenuObject(object);
+      },
+      onTransformFeedbackShow: (object, feedbackType) => {
+        setTransformFeedbackVisible(true);
+        setTransformObject(object);
+        setTransformFeedbackType(feedbackType);
+      },
+      onTransformFeedbackHide: () => {
+        setTransformFeedbackVisible(false);
+        setTransformObject(null);
+        setTransformFeedbackType('scaling');
+      },
+      onTransformFeedbackUpdate: (object, feedbackType) => {
+        setTransformObject(object);
+        if (feedbackType) {
+          setTransformFeedbackType(feedbackType);
+        }
+      },
+      // Legacy callbacks for backward compatibility
+      onScalingFeedbackShow: (object) => {
+        setTransformFeedbackVisible(true);
+        setTransformObject(object);
+        setTransformFeedbackType('scaling');
+      },
+      onScalingFeedbackHide: () => {
+        setTransformFeedbackVisible(false);
+        setTransformObject(null);
+        setTransformFeedbackType('scaling');
+      },
+      onScalingFeedbackUpdate: (object) => {
+        setTransformObject(object);
+        setTransformFeedbackType('scaling');
       }
     };
     
@@ -394,7 +431,6 @@ export default function ThreeScene({
     // Expose indicator cleanup function for debugging
     if (geometryManager.current) {
       window.cleanupAllIndicators = () => {
-        console.log('Manual indicator cleanup called');
         geometryManager.current.cleanupAllIndicators();
       };
     }
@@ -437,18 +473,13 @@ export default function ThreeScene({
       // Expose geometry deletion function
       window.removeGeometry = (geometryId) => {
         try {
-          console.log('window.removeGeometry called with ID:', geometryId);
           const geometries = geometriesRef.current;
-          console.log('Available geometries:', geometries.map(g => ({ id: g.userData?.id, name: g.userData?.volumeName })));
           
           const geometry = geometries.find(g => g.userData?.id === geometryId);
           if (geometry) {
-            console.log('Found geometry to delete:', geometry.userData?.volumeName);
             const result = geometryManager.current.deleteGeometry(geometry);
-            console.log('deleteGeometry result:', result);
             return result;
           } else {
-            console.log('Geometry not found with ID:', geometryId);
             return false;
           }
         } catch (error) {
@@ -673,6 +704,13 @@ export default function ThreeScene({
         onSave={(meshData) => {
         }}
         selectedObject={contextMenuObject}
+      />
+      
+      {/* Transform Feedback */}
+      <ScalingFeedback
+        isVisible={transformFeedbackVisible}
+        object={transformObject}
+        feedbackType={transformFeedbackType}
       />
     </div>
   );

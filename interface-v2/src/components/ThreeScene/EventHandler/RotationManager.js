@@ -30,12 +30,6 @@ export class RotationManager {
   }
 
   beginRotation(event) {
-    console.log('beginRotation', {
-      tool: this.state.selectedToolRef.current,
-      geometry: this.refs.selectedGeometryRef.current,
-      event: { clientX: event.clientX, clientY: event.clientY }
-    });
-    
     if (this.state.selectedToolRef.current !== 'rotate' || !this.refs.selectedGeometryRef.current) {
       return;
     }
@@ -70,16 +64,6 @@ export class RotationManager {
   }
 
   updateRotation(event) {
-    console.log('updateRotation', {
-      isRotating: this.isRotating,
-      tool: this.state.selectedToolRef.current,
-      object: this.refs.selectedGeometryRef.current,
-      delta: {
-        x: event.clientX - this.lastMouseX,
-        y: event.clientY - this.lastMouseY
-      }
-    });
-    
     if (!this.isRotating || this.state.selectedToolRef.current !== 'rotate' || !this.refs.selectedGeometryRef.current) {
       return;
     }
@@ -127,8 +111,13 @@ export class RotationManager {
       .multiply(horizontalRotation)
       .multiply(verticalRotation);
 
-    // Apply the rotation
-    object.quaternion.multiplyQuaternions(combinedRotation, object.quaternion);
+    // Apply the rotation using a more stable approach
+    // Store the current quaternion and apply the new rotation
+    const currentQuaternion = object.quaternion.clone();
+    object.quaternion.multiplyQuaternions(currentQuaternion, combinedRotation);
+    
+    // Normalize the quaternion to prevent drift
+    object.quaternion.normalize();
 
     // Update matrices
     object.updateMatrix();
@@ -162,11 +151,6 @@ export class RotationManager {
   }
 
   endRotation() {
-    console.log('endRotation', {
-      wasRotating: this.isRotating,
-      object: this.refs.selectedGeometryRef.current
-    });
-    
     if (!this.isRotating) return;
 
     this.isRotating = false;

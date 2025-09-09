@@ -26,6 +26,7 @@ export default function App() {
     setShowCompoundVolume: state.setShowCompoundVolume,
     setShowVolumeProperties: state.setShowVolumeProperties,
     setShowPhysicsPanel: state.setShowPhysicsPanel,
+    setShowDecaySimulator: state.setShowDecaySimulator,
     setSelectedVolumeData: state.setSelectedVolumeData,
     setPhysicsSimulationResults: state.setPhysicsSimulationResults,
     setIsPhysicsSimulating: state.setIsPhysicsSimulating,

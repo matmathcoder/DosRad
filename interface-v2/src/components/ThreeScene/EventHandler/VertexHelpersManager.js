@@ -38,13 +38,17 @@ export class VertexHelpersManager {
     const planeMaterial = new THREE.MeshBasicMaterial({ 
       color: 0x000000, 
       transparent: true, 
-      opacity: 0.1, 
+      opacity: 0, 
       depthWrite: false, 
-      side: THREE.DoubleSide 
+      side: THREE.DoubleSide,
+      visible: false
     });
     
     this.resizePlane = new THREE.Mesh(planeGeometry, planeMaterial);
     this.resizePlane.visible = false; // Keep invisible by default
+    this.resizePlane.castShadow = false;
+    this.resizePlane.receiveShadow = false;
+    this.resizePlane.frustumCulled = false; // Don't cull for intersection testing
     this.resizePlane.userData = { type: 'resize-plane' };
     
     // Add to scene
@@ -177,6 +181,7 @@ export class VertexHelpersManager {
     if (this.wireframeBox) {
       this.wireframeBox.visible = true;
     }
+    // Resize plane stays invisible - we use bounding box intersection instead
   }
   
   hideVertexHelpers() {
@@ -186,8 +191,34 @@ export class VertexHelpersManager {
     if (this.wireframeBox) {
       this.wireframeBox.visible = false;
     }
+    // Resize plane stays invisible
   }
   
+  updateResizePlane() {
+    if (!this.resizePlane || !this.refs.selectedGeometryRef.current) return;
+    
+    const object = this.refs.selectedGeometryRef.current;
+    const boundingBox = new THREE.Box3().setFromObject(object);
+    const size = boundingBox.getSize(new THREE.Vector3());
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    
+    // Make the resize plane larger than the object to ensure easy intersection
+    const planeSize = Math.max(size.x, size.y, size.z) * 1.5;
+    
+    // Update the resize plane geometry
+    this.resizePlane.geometry.dispose();
+    this.resizePlane.geometry = new THREE.PlaneGeometry(planeSize, planeSize);
+    
+    // Position the resize plane at the object center
+    this.resizePlane.position.copy(center);
+    
+    // Orient the resize plane to face the camera
+    if (this.modules?.cameraController) {
+      const camera = this.modules.cameraController.getActiveCamera();
+      this.resizePlane.lookAt(camera.position);
+    }
+  }
+
   updateVertexHelpersPositions(object) {
     // Update vertex helpers positions based on object's current transformation
     // Ensure object's world matrix is updated

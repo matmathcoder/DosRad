@@ -119,7 +119,6 @@ export default function useAppHandlers({
   const handleGeometryCreated = (mesh) => {
     // Skip if we're restoring from localStorage to prevent duplicates
     if (window.isRestoringFromLocalStorage) {
-      console.log('Skipping handleGeometryCreated during restoration');
       return;
     }
     
@@ -131,7 +130,6 @@ export default function useAppHandlers({
       // Check if this geometry already exists to prevent duplicates
       const existingVolume = state.existingVolumes.find(vol => vol.id === mesh.userData.id);
       if (existingVolume) {
-        console.log('Geometry already exists in state, skipping duplicate:', mesh.userData.volumeName);
         return;
       }
       
@@ -167,7 +165,6 @@ export default function useAppHandlers({
       // Add to existing volumes
       actions.setExistingVolumes(prev => [...prev, volumeData]);
       
-      console.log('Added geometry to Directory:', volumeData.name);
     }
   };
 

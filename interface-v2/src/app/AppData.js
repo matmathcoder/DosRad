@@ -451,14 +451,12 @@ export function loadFromLocalStorage(actions) {
     // Check if scene was explicitly cleared in a previous session
     const sceneCleared = localStorage.getItem('mercurad_scene_cleared') === 'true';
     if (sceneCleared) {
-      console.log('Scene restoration skipped - scene was explicitly cleared');
       localStorage.removeItem('mercurad_scene_cleared');
       return;
     }
     
     // Check if we're already restoring to prevent multiple calls
     if (window.isRestoringFromLocalStorage) {
-      console.log('Already restoring from localStorage, skipping duplicate call');
       return;
     }
     
@@ -515,10 +513,8 @@ export function loadFromLocalStorage(actions) {
       });
       
       if (uniqueVolumes.length !== volumes.length) {
-        console.log(`Removed ${volumes.length - uniqueVolumes.length} duplicate volumes`);
       }
       
-      console.log('Setting existingVolumes:', uniqueVolumes.length, 'volumes');
       actions.setExistingVolumes(uniqueVolumes);
       
       // Create geometries in the 3D scene (with delay to ensure ThreeScene is initialized)
@@ -542,7 +538,6 @@ export function loadFromLocalStorage(actions) {
             
             const geometry = window.createGeometryFromData(objData);
             if (geometry) {
-              console.log('Restored geometry in scene:', volume.name);
             }
           } else {
             console.warn('createGeometryFromData not available yet');

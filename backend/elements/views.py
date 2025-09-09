@@ -233,20 +233,20 @@ class ElementListView(generics.ListAPIView):
     """List all elements"""
     queryset = Element.objects.all().order_by('atomic_number')
     serializer_class = ElementSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 
 class ElementDetailView(generics.RetrieveAPIView):
     """Get element details"""
     queryset = Element.objects.all()
     serializer_class = ElementSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 
 class IsotopeListView(generics.ListAPIView):
     """List isotopes with optional filtering"""
     serializer_class = IsotopeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         queryset = Isotope.objects.select_related('element').all()
@@ -271,13 +271,13 @@ class IsotopeDetailView(generics.RetrieveAPIView):
     """Get isotope details"""
     queryset = Isotope.objects.all()
     serializer_class = IsotopeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 
 class NeutronCrossSectionListView(generics.ListAPIView):
     """List neutron cross sections"""
     serializer_class = NeutronCrossSectionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         queryset = NeutronCrossSection.objects.select_related('isotope__element').all()
@@ -383,7 +383,7 @@ class IsotopeSourceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # Search and simulation endpoints
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def search_elements(request):
     """Search elements by symbol, name, or atomic number"""
     serializer = ElementSearchSerializer(data=request.query_params)
@@ -423,7 +423,7 @@ def search_elements(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def get_isotope_cross_sections(request, isotope_id):
     """Get neutron cross sections for a specific isotope"""
     try:
@@ -479,7 +479,7 @@ def get_isotope_gamma_spectrum(request, isotope_id):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def simulate_decay_chain(request):
     """Simulate isotope decay chain in reactor environment"""
     serializer = DecaySimulationRequestSerializer(data=request.data)

@@ -141,7 +141,6 @@ export default class PersistenceManager {
     const sceneChildren = this.refs.sceneGroupRef.current.children.slice();
     sceneChildren.forEach(child => {
       if (child.userData?.isIndicator) {
-        console.log('Removing orphaned indicator from scene');
         this.refs.sceneGroupRef.current.remove(child);
         if (child.geometry) child.geometry.dispose();
         if (child.material) child.material.dispose();
@@ -344,7 +343,6 @@ export default class PersistenceManager {
     
     // Don't restore if scene was explicitly cleared
     if (this.sceneCleared || sceneCleared) {
-      console.log('Scene restoration skipped - scene was explicitly cleared');
       // Remove the cleared flag since we've acknowledged it
       localStorage.removeItem('mercurad_scene_cleared');
       return;
@@ -352,10 +350,8 @@ export default class PersistenceManager {
     
     const savedScene = this.loadSceneFromLocalStorage();
     if (savedScene) {
-      console.log(`Restoring scene with ${savedScene.geometries?.length || 0} geometries`);
       this.restoreSceneState(savedScene);
     } else {
-      console.log('No saved scene found to restore');
     }
   }
   
@@ -378,7 +374,6 @@ export default class PersistenceManager {
     try {
       const savedData = localStorage.getItem('mercurad_scene');
       if (!savedData) {
-        console.log(`No saved data found for geometry ${geometryId}`);
         return;
       }
       
@@ -388,7 +383,6 @@ export default class PersistenceManager {
         const originalLength = sceneData.geometries.length;
         sceneData.geometries = sceneData.geometries.filter(geom => geom.id !== geometryId);
         
-        console.log(`Removing geometry ${geometryId} from localStorage. Remaining: ${sceneData.geometries.length}/${originalLength}`);
         
         // Only save if something was actually removed
         if (sceneData.geometries.length < originalLength) {
@@ -398,7 +392,6 @@ export default class PersistenceManager {
           // If no geometries left, mark scene as cleared
           if (sceneData.geometries.length === 0) {
             localStorage.setItem('mercurad_scene_cleared', 'true');
-            console.log('Scene marked as cleared - no geometries remaining');
           }
         }
       }

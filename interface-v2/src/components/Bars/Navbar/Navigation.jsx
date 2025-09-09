@@ -24,6 +24,7 @@ export default function Navigation({
   onShowSensorPanel,
   onShowCompoundVolume,
   onShowPhysicsPanel,
+  onShowDecaySimulator,
   onSaveToComputer,
   onSaveToCloud,
   onLoadFromComputer,
@@ -61,6 +62,7 @@ export default function Navigation({
     onShowSensorPanel,
     onShowCompoundVolume,
     onShowPhysicsPanel,
+    onShowDecaySimulator,
     onSaveToComputer,
     onSaveToCloud,
     onLoadFromComputer,
@@ -173,52 +175,40 @@ export default function Navigation({
         onComputationComplete={onComputationComplete}
         onSceneGenerated={onSceneGenerated}
         onEditComposition={(composition) => {
-          console.log('Edit composition:', composition);
         }}
         onDeleteComposition={(composition) => {
-          console.log('Delete composition:', composition);
         }}
         onCreateComposition={() => {
           state.setShowCompositionPanel(true);
         }}
         onEditSource={(source) => {
-          console.log('Edit source:', source);
         }}
         onDeleteSource={(source) => {
-          console.log('Delete source:', source);
         }}
         onCreateSource={() => {
           state.setShowCompoundVolume(true);
         }}
         onEditSensor={(sensor) => {
-          console.log('Edit sensor:', sensor);
         }}
         onDeleteSensor={(sensor) => {
-          console.log('Delete sensor:', sensor);
         }}
         onCreateSensor={() => {
           state.setShowSensorPanel(true);
         }}
         onUseComposition={(composition) => {
-          console.log('Use composition:', composition);
           state.setShowCompositionPanel(false);
         }}
         onStoreComposition={(composition) => {
-          console.log('Store composition:', composition);
           state.setShowCompositionPanel(false);
         }}
         onValidateSensors={(sensors) => {
-          console.log('Validate sensors:', sensors);
         }}
         onSaveAsSensors={(sensors) => {
-          console.log('Save sensors:', sensors);
           state.setShowSensorPanel(false);
         }}
         onValidateVolume={(volume) => {
-          console.log('Validate volume:', volume);
         }}
         onSaveAsVolume={(volume) => {
-          console.log('Save volume:', volume);
           state.setShowCompoundVolume(false);
         }}
         onCloseMeshPanel={() => state.setShowMeshPanel(false)}

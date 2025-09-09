@@ -73,7 +73,6 @@ export default function Directory({
 
   // Debug: Log when existingVolumes changes
   useEffect(() => {
-    console.log('Directory received volumes:', existingVolumes.length, existingVolumes.map(v => ({ id: v.id, name: v.name || v.userData?.volumeName })));
     
     // Additional safeguard: Check for duplicates in the received data
     const ids = existingVolumes.map(v => v.id);

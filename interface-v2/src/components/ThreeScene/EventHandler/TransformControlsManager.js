@@ -8,6 +8,10 @@ export class TransformControlsManager {
     this.callbacks = callbacks;
     this.transformControlsRef = null;
     this.modules = null;
+    this.isScaling = false;
+    this.isDragging = false;
+    this.isRotating = false;
+    this.scalingObject = null;
   }
   
   setModules(modules) {
@@ -87,9 +91,31 @@ export class TransformControlsManager {
                 this.modules.historyManager.saveToHistory();
               }
               
-              // Show real-time scale feedback during scaling
-              if (this.transformControlsRef.getMode() === 'scale' && this.transformControlsRef.object) {
+              // Show real-time transform feedback during transformation
+              if (this.transformControlsRef.object) {
                 const object = this.transformControlsRef.object;
+                const mode = this.transformControlsRef.getMode();
+                
+                if (mode === 'scale') {
+                  this.isScaling = true;
+                  this.scalingObject = object;
+                  // Notify EventHandler to show scaling feedback
+                  if (this.modules?.eventHandler?.showTransformFeedback) {
+                    this.modules.eventHandler.showTransformFeedback(object, 'scaling');
+                  }
+                } else if (mode === 'translate') {
+                  this.isDragging = true;
+                  // Notify EventHandler to show position feedback
+                  if (this.modules?.eventHandler?.showTransformFeedback) {
+                    this.modules.eventHandler.showTransformFeedback(object, 'position');
+                  }
+                } else if (mode === 'rotate') {
+                  this.isRotating = true;
+                  // Notify EventHandler to show rotation feedback
+                  if (this.modules?.eventHandler?.showTransformFeedback) {
+                    this.modules.eventHandler.showTransformFeedback(object, 'rotation');
+                  }
+                }
               }
             } else {
               // Actions when dragging ends
@@ -110,9 +136,44 @@ export class TransformControlsManager {
                 this.modules.persistenceManager.saveScene();
               }
               
-              // Final scale feedback
-              if (this.transformControlsRef.getMode() === 'scale' && this.transformControlsRef.object) {
+              // Final transform feedback
+              if (this.transformControlsRef.object) {
                 const object = this.transformControlsRef.object;
+                const mode = this.transformControlsRef.getMode();
+                
+                if (mode === 'scale') {
+                  this.isScaling = false;
+                  this.scalingObject = null;
+                } else if (mode === 'translate') {
+                  this.isDragging = false;
+                } else if (mode === 'rotate') {
+                  this.isRotating = false;
+                }
+                
+                // Notify EventHandler to hide transform feedback
+                if (this.modules?.eventHandler?.hideTransformFeedback) {
+                  this.modules.eventHandler.hideTransformFeedback();
+                }
+              }
+            }
+          });
+
+          // Add object change listener for real-time updates during scaling
+          this.transformControlsRef.addEventListener('objectChange', () => {
+            // Update scaling feedback in real-time during scaling
+            if (this.isScaling && this.scalingObject && this.transformControlsRef.getMode() === 'scale') {
+              if (this.modules?.eventHandler?.updateScalingFeedback) {
+                this.modules.eventHandler.updateScalingFeedback(this.scalingObject);
+              }
+            }
+          });
+
+          // Also listen for the change event (alternative event name)
+          this.transformControlsRef.addEventListener('change', () => {
+            // Update scaling feedback in real-time during scaling
+            if (this.isScaling && this.scalingObject && this.transformControlsRef.getMode() === 'scale') {
+              if (this.modules?.eventHandler?.updateScalingFeedback) {
+                this.modules.eventHandler.updateScalingFeedback(this.scalingObject);
               }
             }
           });
@@ -198,6 +259,38 @@ export class TransformControlsManager {
     }
   }
   
+  // Method to update scaling feedback in real-time
+  updateScalingFeedback() {
+    if (this.isScaling && this.scalingObject && this.modules?.eventHandler?.updateScalingFeedback) {
+      this.modules.eventHandler.updateScalingFeedback(this.scalingObject);
+    }
+  }
+
+  // Method to check if currently transforming and update feedback
+  checkAndUpdateTransformFeedback() {
+    if (this.transformControlsRef && this.transformControlsRef.dragging && this.transformControlsRef.object) {
+      const mode = this.transformControlsRef.getMode();
+      let feedbackType = 'scaling';
+      
+      if (mode === 'translate') {
+        feedbackType = 'position';
+      } else if (mode === 'rotate') {
+        feedbackType = 'rotation';
+      } else if (mode === 'scale') {
+        feedbackType = 'scaling';
+      }
+      
+      if (this.modules?.eventHandler?.updateTransformFeedback) {
+        this.modules.eventHandler.updateTransformFeedback(this.transformControlsRef.object, feedbackType);
+      }
+    }
+  }
+
+  // Legacy method for backward compatibility
+  checkAndUpdateScalingFeedback() {
+    this.checkAndUpdateTransformFeedback();
+  }
+
   cleanup() {
     if (this.transformControlsRef) {
       this.transformControlsRef.dispose();

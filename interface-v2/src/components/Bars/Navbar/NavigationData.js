@@ -11,7 +11,8 @@ import {
   CirclePlus, 
   Image, 
   FileBox, 
-  Printer 
+  Printer,
+  Atom
 } from 'lucide-react';
 
 /**
@@ -58,7 +59,8 @@ export const menuStructure = {
   Scene: [
     'Generate Scene...',
     'Start Computation',
-    'Physics Simulation'
+    'Physics Simulation',
+    'Decay Simulator'
   ],
   Mesh: [
     'Configure Mesh...'
@@ -94,6 +96,13 @@ export const fileMenuIcons = {
   'Export (Image)': Image,
   'Export (OBJ)': FileBox,
   'Print': Printer
+};
+
+/**
+ * Scene menu icons mapping
+ */
+export const sceneMenuIcons = {
+  'Decay Simulator': Atom
 };
 
 /**

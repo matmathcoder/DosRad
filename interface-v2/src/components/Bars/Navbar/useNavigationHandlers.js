@@ -17,6 +17,7 @@ export default function useNavigationHandlers({
   onShowSensorPanel,
   onShowCompoundVolume,
   onShowPhysicsPanel,
+  onShowDecaySimulator,
   onSaveToComputer,
   onSaveToCloud,
   onLoadFromComputer,
@@ -91,6 +92,11 @@ export default function useNavigationHandlers({
       case 'Physics Simulation':
         if (onShowPhysicsPanel) {
           onShowPhysicsPanel();
+        }
+        break;
+      case 'Decay Simulator':
+        if (onShowDecaySimulator) {
+          onShowDecaySimulator();
         }
         break;
       case 'Configure Mesh...':

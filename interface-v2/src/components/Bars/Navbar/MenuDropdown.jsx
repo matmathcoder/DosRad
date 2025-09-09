@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
-import { fileMenuIcons, visibilityMap } from './NavigationData';
+import { fileMenuIcons, sceneMenuIcons, visibilityMap } from './NavigationData';
 
 /**
  * Menu Dropdown Component
@@ -47,7 +47,7 @@ export default function MenuDropdown({
       }
       
       // File menu items with icons
-      const IconComponent = fileMenuIcons[item];
+      const IconComponent = fileMenuIcons[item] || sceneMenuIcons[item];
       
       // Regular menu items
       return (
