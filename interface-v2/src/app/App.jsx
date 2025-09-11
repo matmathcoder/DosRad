@@ -5,7 +5,7 @@ import useAppHandlers from './useAppHandlers';
 import useAppEffects from './useAppEffects';
 import AppLayout from './AppLayout';
 import { getSceneData, loadSceneData, loadFromLocalStorage, loadExampleScene } from './AppData';
-import { initializeProject } from '../utils/projectInitializer';
+import { initializeProject, migrateTemporaryProjectToPermanent } from '../utils/projectInitializer';
 
 /**
  * Main App Component
@@ -46,7 +46,8 @@ export default function App() {
     setCurrentComposition: state.setCurrentComposition,
     setCurrentSpectrum: state.setCurrentSpectrum,
     setExistingCompositions: state.setExistingCompositions,
-    setExistingSpectra: state.setExistingSpectra
+    setExistingSpectra: state.setExistingSpectra,
+    setCurrentProjectId: state.setCurrentProjectId
   }), []); // Empty dependency array since useState setters are stable
   
   const handlers = useAppHandlers({
@@ -250,15 +251,18 @@ export default function App() {
     }
   }), [handlers, state]); // Depend on handlers and state
 
-  // Initialize project on app load
+  // Initialize project on app load only if no current project
   useEffect(() => {
+    if (state.currentProjectId) {
+      console.log('Project already initialized:', state.currentProjectId);
+      return;
+    }
+    
     const initProject = async () => {
       try {
-        // Only initialize if no project is currently loaded
-        if (!state.currentProjectId) {
-          console.log('No project loaded, initializing...');
-          await initializeProject(state.setCurrentProjectId);
-        }
+        // Only initialize if no current project
+        console.log('Initializing project...');
+        await initializeProject(state.setCurrentProjectId);
       } catch (error) {
         console.error('Project initialization failed:', error);
         // Don't throw error to prevent app crash, just log it
@@ -279,8 +283,18 @@ export default function App() {
     handlers: enhancedHandlers
   });
 
+  // Handle project migration when user logs in
+  const handleProjectMigration = async () => {
+    try {
+      await migrateTemporaryProjectToPermanent(state.setCurrentProjectId);
+    } catch (error) {
+      console.error('Project migration failed:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthProvider>
+    <AuthProvider onProjectMigration={handleProjectMigration}>
       <AppLayout
         state={state}
         handlers={enhancedHandlers}

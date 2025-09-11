@@ -360,7 +360,18 @@ export default class HistoryManager {
   initializeHistory() {
     // Initialize history with empty scene state
     setTimeout(() => {
-      this.saveToHistory();
+      // Create initial empty state snapshot
+      const emptySnapshot = {
+        timestamp: Date.now(),
+        geometries: [],
+        camera: this.getCameraSnapshot(),
+        sceneRotation: this.getSceneRotationSnapshot(),
+        viewSettings: this.getViewSettingsSnapshot()
+      };
+      
+      // Add empty state to history
+      this.historyStack = [emptySnapshot];
+      this.historyIndex = 0;
     }, 500); // Wait for scene to fully initialize
   }
   

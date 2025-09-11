@@ -48,6 +48,7 @@ class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, and delete projects"""
     serializer_class = ProjectDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'uuid'
     
     def get_queryset(self):
         user = self.request.user
@@ -74,7 +75,7 @@ class SceneConfigurationView(generics.RetrieveUpdateAPIView):
     
     def get_object(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return get_object_or_404(SceneConfiguration, project=project)
 
 
@@ -85,12 +86,12 @@ class GeometryListView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Geometry.objects.filter(project=project)
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -101,7 +102,7 @@ class GeometryDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Geometry.objects.filter(project=project)
 
 
@@ -112,12 +113,12 @@ class CompositionListView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Composition.objects.filter(project=project)
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -128,7 +129,7 @@ class CompositionDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Composition.objects.filter(project=project)
 
 
@@ -139,12 +140,12 @@ class SpectrumListView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Spectrum.objects.filter(project=project)
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -155,7 +156,7 @@ class SpectrumDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Spectrum.objects.filter(project=project)
 
 
@@ -166,12 +167,12 @@ class VolumeListView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Volume.objects.filter(project=project)
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -182,7 +183,7 @@ class VolumeDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Volume.objects.filter(project=project)
 
 
@@ -193,7 +194,7 @@ class VolumeCreateView(generics.CreateAPIView):
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -204,7 +205,7 @@ class SceneHistoryListView(generics.ListAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return SceneHistory.objects.filter(project=project)
 
 
@@ -235,7 +236,7 @@ class LoadCompleteSceneView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request, project_id):
-        project = get_object_or_404(Project, id=project_id, user=request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=request.user)
         
         # Get all related data
         scene_config = SceneConfiguration.objects.get(project=project)
@@ -268,12 +269,12 @@ class CSGOperationListView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return CSGOperation.objects.filter(project=project)
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -281,7 +282,7 @@ class CSGOperationListView(generics.ListCreateAPIView):
 @permission_classes([permissions.IsAuthenticated])
 def update_volume_name(request, project_id, volume_id):
     """Update volume name"""
-    project = get_object_or_404(Project, id=project_id, user=request.user)
+    project = get_object_or_404(Project, uuid=project_id, user=request.user)
     volume = get_object_or_404(Volume, id=volume_id, project=project)
     
     new_name = request.data.get('name')
@@ -308,7 +309,7 @@ def update_volume_name(request, project_id, volume_id):
 @permission_classes([permissions.IsAuthenticated])
 def duplicate_project(request, project_id):
     """Duplicate a project"""
-    original_project = get_object_or_404(Project, id=project_id, user=request.user)
+    original_project = get_object_or_404(Project, uuid=project_id, user=request.user)
     
     with transaction.atomic():
         # Create new project
@@ -412,12 +413,12 @@ class SensorListView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Sensor.objects.filter(project=project)
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -428,7 +429,7 @@ class SensorDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return Sensor.objects.filter(project=project)
 
 
@@ -437,7 +438,7 @@ class SensorDetailView(generics.RetrieveUpdateDestroyAPIView):
 def update_sensor_name(request, project_id, sensor_id):
     """Update sensor name"""
     try:
-        project = get_object_or_404(Project, id=project_id, user=request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=request.user)
         sensor = get_object_or_404(Sensor, id=sensor_id, project=project)
         
         new_name = request.data.get('name')
@@ -467,12 +468,12 @@ class CompoundObjectListView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return CompoundObject.objects.filter(project=project)
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -483,7 +484,7 @@ class CompoundObjectDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return CompoundObject.objects.filter(project=project)
 
 
@@ -507,7 +508,7 @@ class CompoundObjectImportView(APIView):
     
     @transaction.atomic
     def post(self, request, project_id):
-        project = get_object_or_404(Project, id=project_id, user=request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=request.user)
         
         serializer = CompoundObjectImportRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -670,7 +671,7 @@ class CompoundObjectExportView(APIView):
     
     @transaction.atomic
     def post(self, request, project_id):
-        project = get_object_or_404(Project, id=project_id, user=request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=request.user)
         
         serializer = CompoundObjectExportSerializer(data=request.data)
         if not serializer.is_valid():
@@ -785,7 +786,7 @@ class CompoundObjectImportHistoryView(generics.ListAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return CompoundObjectImport.objects.filter(project=project)
 
 
@@ -823,12 +824,12 @@ class ComputationConfigurationView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return ComputationConfiguration.objects.filter(project=project)
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -849,12 +850,12 @@ class ComputationResultView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         return ComputationResult.objects.filter(project=project)
     
     def perform_create(self, serializer):
         project_id = self.kwargs.get('project_id')
-        project = get_object_or_404(Project, id=project_id, user=self.request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=self.request.user)
         serializer.save(project=project)
 
 
@@ -899,7 +900,7 @@ class ToleranceConfigurationDetailView(generics.RetrieveUpdateDestroyAPIView):
 def start_computation(request, project_id):
     """Start Monte-Carlo computation for a project"""
     try:
-        project = get_object_or_404(Project, id=project_id, user=request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=request.user)
         
         # Get computation parameters
         convergence_criterion = request.data.get('convergence_criterion', 0.01)
@@ -998,7 +999,7 @@ def start_computation(request, project_id):
 def get_computation_results(request, project_id):
     """Get computation results for a project"""
     try:
-        project = get_object_or_404(Project, id=project_id, user=request.user)
+        project = get_object_or_404(Project, uuid=project_id, user=request.user)
         results = ComputationResult.objects.filter(project=project).order_by('-created_at')
         
         serializer = ComputationResultSerializer(results, many=True)
@@ -1042,7 +1043,7 @@ class CompleteProjectUpdateView(APIView):
     def put(self, request, project_id):
         """Update a complete project with all related objects"""
         try:
-            project = get_object_or_404(Project, id=project_id, user=request.user)
+            project = get_object_or_404(Project, uuid=project_id, user=request.user)
             serializer = CompleteProjectCreateSerializer(project, data=request.data, context={'request': request})
             
             if serializer.is_valid():
@@ -1068,7 +1069,7 @@ class CompleteProjectRetrieveView(APIView):
     def get(self, request, project_id):
         """Retrieve a complete project with all related objects"""
         try:
-            project = get_object_or_404(Project, id=project_id, user=request.user)
+            project = get_object_or_404(Project, uuid=project_id, user=request.user)
             serializer = CompleteProjectSerializer(project)
             return Response(serializer.data, status=status.HTTP_200_OK)
             

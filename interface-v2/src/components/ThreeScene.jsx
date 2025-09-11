@@ -244,6 +244,7 @@ export default function ThreeScene({
     cameraController.current.initialize();
     viewManager.current.initialize();
     eventHandler.current.initialize();
+    historyManager.current.initializeHistory();
     
     // Start animation loop
     const animate = () => {

@@ -166,3 +166,7 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+iaea-data/
+JEFF-Data/
+mendeleev-data/

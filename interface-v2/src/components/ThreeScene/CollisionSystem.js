@@ -78,12 +78,12 @@ export default class CollisionSystem {
     // Calculate overlap amount
     const overlap = collisionDistance - distance;
     
-    // Separate objects by moving them apart
-    const separationA = normal.clone().multiplyScalar(-overlap * 0.5);
-    const separationB = normal.clone().multiplyScalar(overlap * 0.5);
-    
-    meshA.position.add(separationA);
-    meshB.position.add(separationB);
+    // DISABLED: Separate objects by moving them apart
+    // Objects will now stay in their positions when colliding
+    // const separationA = normal.clone().multiplyScalar(-overlap * 0.5);
+    // const separationB = normal.clone().multiplyScalar(overlap * 0.5);
+    // meshA.position.add(separationA);
+    // meshB.position.add(separationB);
     
     // Visual feedback - flash colors
     const originalColorA = meshA.userData.originalColor;

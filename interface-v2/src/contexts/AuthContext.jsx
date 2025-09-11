@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiService from '../services/api.js';
+import { migrateTemporaryProjectToPermanent } from '../utils/projectInitializer.js';
 
 const AuthContext = createContext();
 
@@ -11,7 +12,7 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider = ({ children }) => {
+export const AuthProvider = ({ children, onProjectMigration }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -40,6 +41,17 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await apiService.login(credentials);
       setUser(response.user);
+      
+      // Migrate temporary project to permanent if callback is provided
+      if (onProjectMigration) {
+        try {
+          await onProjectMigration();
+        } catch (migrationError) {
+          console.warn('Project migration failed:', migrationError);
+          // Don't fail login if migration fails
+        }
+      }
+      
       return response;
     } catch (error) {
       throw error;
@@ -50,6 +62,17 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await apiService.register(userData);
       setUser(response.user);
+      
+      // Migrate temporary project to permanent if callback is provided
+      if (onProjectMigration) {
+        try {
+          await onProjectMigration();
+        } catch (migrationError) {
+          console.warn('Project migration failed:', migrationError);
+          // Don't fail signup if migration fails
+        }
+      }
+      
       return response;
     } catch (error) {
       throw error;

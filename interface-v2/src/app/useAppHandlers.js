@@ -577,6 +577,69 @@ export default function useAppHandlers({
     }
   };
 
+  // Create new project handler
+  const handleCreateNewProject = async () => {
+    try {
+      // Clear current scene
+      if (window.clearScene) {
+        window.clearScene();
+      }
+      
+      // Clear all compositions, sensors, and spectra
+      actions.setExistingCompositions([]);
+      actions.setExistingSensors([]);
+      actions.setExistingSpectra([]);
+      
+      // Clear selected objects
+      actions.setSelectedGeometry(null);
+      actions.setSelectedVolumeData(null);
+      
+      // Clear any existing temporary project from localStorage
+      const TemporaryProjectService = (await import('../services/TemporaryProjectService')).default;
+      const tempProjectService = new TemporaryProjectService();
+      const currentTempProjectId = tempProjectService.getCurrentTemporaryProjectId();
+      if (currentTempProjectId) {
+        tempProjectService.deleteTemporaryProject(currentTempProjectId);
+      }
+      
+      // Create a new project
+      const { createDefaultProject } = await import('../utils/projectInitializer');
+      const newProject = await createDefaultProject();
+      
+      // Update the current project ID
+      actions.setCurrentProjectId(newProject.id);
+      
+      // Save the project to localStorage as the current project
+      if (newProject.is_temporary) {
+        tempProjectService.setCurrentTemporaryProjectId(newProject.id);
+      } else {
+        // For backend projects, we need to save them to localStorage for persistence
+        // This allows the project to be loaded on refresh
+        const projectData = {
+          id: newProject.id,
+          name: newProject.name,
+          description: newProject.description,
+          is_public: newProject.is_public,
+          is_temporary: false,
+          created_at: newProject.created_at,
+          updated_at: newProject.updated_at
+        };
+        tempProjectService.updateTemporaryProject(newProject.id, projectData);
+        tempProjectService.setCurrentTemporaryProjectId(newProject.id);
+      }
+      
+      // Update URL to include the new project ID
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('projectId', newProject.id);
+      window.history.replaceState({}, '', newUrl);
+      
+      console.log('New project created:', newProject);
+    } catch (error) {
+      console.error('Failed to create new project:', error);
+      alert('Failed to create new project. Please try again.');
+    }
+  };
+
   return {
     handleToolSelect,
     handleShowVolumeForm,
@@ -628,6 +691,7 @@ export default function useAppHandlers({
     handleSpectrumCreated,
     handleSensorCreated,
     handleCompoundObjectImported,
-    handleClearAllObjects
+    handleClearAllObjects,
+    handleCreateNewProject
   };
 }
