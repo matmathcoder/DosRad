@@ -29,6 +29,13 @@ export default function useAppState() {
   const [hasObjects, setHasObjects] = useState(false);
   const [hasSelectedObject, setHasSelectedObject] = useState(false);
   const [cameraMode, setCameraMode] = useState('perspective');
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+  
+  // Debug wrapper for setCurrentProjectId
+  const setCurrentProjectIdWithDebug = (id) => {
+    console.log('useAppState setCurrentProjectId called with:', id);
+    setCurrentProjectId(id);
+  };
   
   // Window size state
   const [windowSize, setWindowSize] = useState({
@@ -147,6 +154,8 @@ export default function useAppState() {
     setHasSelectedObject,
     cameraMode,
     setCameraMode,
+    currentProjectId,
+    setCurrentProjectId: setCurrentProjectIdWithDebug,
     
     // Window size state
     windowSize,

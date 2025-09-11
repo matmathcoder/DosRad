@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { AuthProvider } from '../contexts/AuthContext';
 import useAppState from './useAppState';
 import useAppHandlers from './useAppHandlers';
 import useAppEffects from './useAppEffects';
 import AppLayout from './AppLayout';
 import { getSceneData, loadSceneData, loadFromLocalStorage, loadExampleScene } from './AppData';
+import { initializeProject } from '../utils/projectInitializer';
 
 /**
  * Main App Component
@@ -248,6 +249,24 @@ export default function App() {
       }
     }
   }), [handlers, state]); // Depend on handlers and state
+
+  // Initialize project on app load
+  useEffect(() => {
+    const initProject = async () => {
+      try {
+        // Only initialize if no project is currently loaded
+        if (!state.currentProjectId) {
+          console.log('No project loaded, initializing...');
+          await initializeProject(state.setCurrentProjectId);
+        }
+      } catch (error) {
+        console.error('Project initialization failed:', error);
+        // Don't throw error to prevent app crash, just log it
+      }
+    };
+    
+    initProject();
+  }, []); // Run once on mount
 
   // Use custom hook for effects
   useAppEffects({

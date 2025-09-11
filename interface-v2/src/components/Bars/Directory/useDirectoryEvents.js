@@ -25,6 +25,17 @@ export default function useDirectoryEvents({
     };
     
     const handleKeyDown = (e) => {
+      // Ignore keyboard events when typing in input fields, textareas, or contenteditable elements
+      const target = e.target;
+      const isInputField = target.tagName === 'INPUT' || 
+                          target.tagName === 'TEXTAREA' || 
+                          target.contentEditable === 'true' ||
+                          target.isContentEditable;
+      
+      if (isInputField) {
+        return; // Don't process directory keyboard events when typing in forms
+      }
+      
       // Handle F2 for rename
       if (e.key === 'F2' && selectedItemId) {
         e.preventDefault();

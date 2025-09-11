@@ -505,6 +505,54 @@ export default function useAppHandlers({
     actions.setExistingSpectra(spectra);
   };
 
+  // Handlers for when new objects are created
+  const handleVolumeCreated = (newVolume) => {
+    console.log('handleVolumeCreated received:', newVolume);
+    
+    // Map backend volume data to frontend expected structure
+    const processedVolume = {
+      id: newVolume.id,
+      name: newVolume.volume_name || 'Unnamed Volume', // Backend uses volume_name
+      type: newVolume.geometry?.geometry_type || 'Unknown',
+      position: newVolume.geometry?.position || { x: 0, y: 0, z: 0 },
+      rotation: newVolume.geometry?.rotation || { x: 0, y: 0, z: 0 },
+      scale: newVolume.geometry?.scale || { x: 1, y: 1, z: 1 },
+      userData: {
+        id: newVolume.id,
+        volumeName: newVolume.volume_name || 'Unnamed Volume', // This is what the directory looks for
+        type: newVolume.geometry?.geometry_type || 'Unknown',
+        volumeType: newVolume.volume_type,
+        isSource: newVolume.is_source,
+        realDensity: newVolume.real_density,
+        tolerance: newVolume.tolerance,
+        gammaSelectionMode: newVolume.gamma_selection_mode,
+        calculation: newVolume.calculation_mode
+      },
+      visible: true
+    };
+    
+    console.log('handleVolumeCreated processed:', processedVolume);
+    actions.setExistingVolumes(prev => [...prev, processedVolume]);
+  };
+
+  const handleCompositionCreated = (newComposition) => {
+    actions.setExistingCompositions(prev => [...prev, newComposition]);
+  };
+
+  const handleSpectrumCreated = (newSpectrum) => {
+    actions.setExistingSpectra(prev => [...prev, newSpectrum]);
+  };
+
+  const handleSensorCreated = (newSensor) => {
+    actions.setExistingSensors(prev => [...prev, newSensor]);
+  };
+
+  const handleCompoundObjectImported = (newCompoundObject) => {
+    // Compound objects might contain multiple volumes, compositions, and spectra
+    // This would need to be handled based on the compound object structure
+    console.log('Compound object imported:', newCompoundObject);
+  };
+
   // Clear all objects handler
   const handleClearAllObjects = () => {
     if (window.confirm('Are you sure you want to delete ALL objects from the scene? This action cannot be undone.')) {
@@ -575,6 +623,11 @@ export default function useAppHandlers({
     handleCompositionsChange,
     handleSensorsChange,
     handleSpectraChange,
+    handleVolumeCreated,
+    handleCompositionCreated,
+    handleSpectrumCreated,
+    handleSensorCreated,
+    handleCompoundObjectImported,
     handleClearAllObjects
   };
 }

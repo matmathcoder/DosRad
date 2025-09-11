@@ -116,6 +116,7 @@ export default function AppLayout({
             onShowCompositionPanel={() => state.setShowCompositionPanel(true)}
             existingCompositions={state.existingCompositions}
             existingSensors={state.existingSensors}
+            setCurrentProjectId={state.setCurrentProjectId}
           />
         </div>
         
@@ -167,6 +168,12 @@ export default function AppLayout({
             onShowGroupSpectrumPanel={() => state.setShowGroupSpectrumPanel(true)}
             onCompositionChange={handlers.handleCompositionChange}
             onSpectrumChange={handlers.handleSpectrumChange}
+            projectId={state.currentProjectId}
+            // Debug: Log currentProjectId value
+            // console.log('AppLayout VolumeForm projectId:', state.currentProjectId)
+            onVolumeCreated={handlers.handleVolumeCreated}
+            onCompositionCreated={handlers.handleCompositionCreated}
+            onSpectrumCreated={handlers.handleSpectrumCreated}
           />
         )}
 
@@ -240,6 +247,8 @@ export default function AppLayout({
             onSaveAs={handlers.handleSensorSave}
             existingSensors={state.existingSensors}
             existingCompositions={state.existingCompositions}
+            projectId={state.currentProjectId}
+            onSensorCreated={handlers.handleSensorCreated}
           />
         )}
 
@@ -253,6 +262,8 @@ export default function AppLayout({
             existingVolumes={state.existingVolumes}
             existingCompositions={state.existingCompositions}
             existingSpectra={state.existingSpectra}
+            projectId={state.currentProjectId}
+            onCompoundObjectImported={handlers.handleCompoundObjectImported}
           />
         )}
 
@@ -338,6 +349,8 @@ export default function AppLayout({
           onStore={handlers.handleCompositionStore}
           initialComposition={state.currentComposition}
           existingCompositions={state.existingCompositions}
+          projectId={state.currentProjectId}
+          onCompositionCreated={handlers.handleCompositionCreated}
         />
       )}
 
@@ -349,6 +362,8 @@ export default function AppLayout({
           onSaveAs={handlers.handleSpectrumSaveAs}
           initialSpectrum={state.currentSpectrum?.type === 'line' ? state.currentSpectrum : null}
           existingSpectra={state.existingSpectra.filter(spec => spec.type === 'line')}
+          projectId={state.currentProjectId}
+          onSpectrumCreated={handlers.handleSpectrumCreated}
         />
       )}
 
@@ -360,6 +375,8 @@ export default function AppLayout({
           onSaveAs={handlers.handleSpectrumSaveAs}
           initialSpectrum={state.currentSpectrum?.type === 'group' ? state.currentSpectrum : null}
           existingSpectra={state.existingSpectra.filter(spec => spec.type === 'group')}
+          projectId={state.currentProjectId}
+          onSpectrumCreated={handlers.handleSpectrumCreated}
         />
       )}
 

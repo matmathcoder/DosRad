@@ -13,11 +13,11 @@ import {
   Save,
   Download
 } from 'lucide-react';
-import apiService from '../../../services/api';
+import apiService from '../../../services/api.js';
 import Projects from './Projects';
 import ProfileDetails from './ProfileDetails';
 
-export default function Profile({ user, onLogout, onClose }) {
+export default function Profile({ user, onLogout, onClose, setCurrentProjectId }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -132,6 +132,15 @@ export default function Profile({ user, onLogout, onClose }) {
           hasSelectedObject: false
         }
       };
+      
+      // Set the current project ID
+      console.log('Profile handleLoadProject - completeProject.id:', completeProject.id);
+      if (setCurrentProjectId) {
+        console.log('Setting currentProjectId to:', completeProject.id);
+        setCurrentProjectId(completeProject.id);
+      } else {
+        console.error('setCurrentProjectId function not available');
+      }
       
       // Load the complete scene data using the global function
       if (window.loadSceneData) {

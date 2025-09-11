@@ -14,7 +14,8 @@ export default function NavigationControls({
   onShowLogin,
   onShowSignup,
   onLogout,
-  ProfileComponent
+  ProfileComponent,
+  setCurrentProjectId
 }) {
   return (
     <div className="flex items-center space-x-1 sm:space-x-2 mr-2 sm:mr-4">
@@ -92,6 +93,7 @@ export default function NavigationControls({
             user={user} 
             onLogout={onLogout}
             onClose={() => {}}
+            setCurrentProjectId={setCurrentProjectId}
           />
         ) : (
           <>

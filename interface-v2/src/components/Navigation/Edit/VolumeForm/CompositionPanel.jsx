@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Plus, Trash2, Save, RotateCcw, Move } from 'lucide-react';
+import apiService from '../../../../services/api.js';
 
 const PREDEFINED_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
@@ -26,7 +27,9 @@ export default function CompositionPanel({
   onUse, 
   onStore, 
   initialComposition = null,
-  existingCompositions = []
+  existingCompositions = [],
+  projectId,
+  onCompositionCreated
 }) {
   const [position, setPosition] = useState({ x: 250, y: 100 });
   const [isDragging, setIsDragging] = useState(false);
@@ -167,7 +170,7 @@ export default function CompositionPanel({
     onClose();
   };
 
-  const handleStore = () => {
+  const handleStore = async () => {
     if (!validateName(compositionData.name)) return;
     if (compositionData.elements.length === 0) return;
     
@@ -177,8 +180,28 @@ export default function CompositionPanel({
       return;
     }
     
-    onStore(compositionData);
-    onClose();
+    try {
+      const compositionPayload = {
+        name: compositionData.name,
+        density: parseFloat(compositionData.density) || 0,
+        color: compositionData.color,
+        elements: compositionData.elements
+      };
+      
+      const savedComposition = await apiService.createComposition(projectId, compositionPayload);
+      
+      // Notify parent about new composition
+      if (onCompositionCreated) {
+        onCompositionCreated(savedComposition);
+      }
+      
+      // Call original onStore
+      onStore(savedComposition);
+      onClose();
+    } catch (error) {
+      console.error('Error saving composition:', error);
+      alert('Error saving composition. Please try again.');
+    }
   };
 
   // Dragging functions

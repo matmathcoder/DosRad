@@ -8,7 +8,7 @@ import {
   Move,
   Minus
 } from 'lucide-react';
-import apiService from '../../../services/api';
+import apiService from '../../../services/api.js';
 
 export default function Projects({ user, onClose, onLoadProject }) {
   const [position, setPosition] = useState({ x: window.innerWidth / 2 - 200, y: window.innerHeight / 2 - 150 });

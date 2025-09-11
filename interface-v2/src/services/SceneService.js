@@ -39,4 +39,21 @@ export default class SceneService extends BaseApiService {
   async loadCompleteScene(projectId) {
     return this.get(`/projects/${projectId}/load-complete-scene/`);
   }
+
+  // Compound Object endpoints
+  async getCompoundObjects(projectId) {
+    return this.get(`/projects/${projectId}/compound-objects/`);
+  }
+
+  async createCompoundObject(projectId, compoundObjectData) {
+    return this.post(`/projects/${projectId}/compound-objects/`, compoundObjectData);
+  }
+
+  async updateCompoundObject(projectId, compoundObjectId, compoundObjectData) {
+    return this.put(`/projects/${projectId}/compound-objects/${compoundObjectId}/`, compoundObjectData);
+  }
+
+  async deleteCompoundObject(projectId, compoundObjectId) {
+    return this.delete(`/projects/${projectId}/compound-objects/${compoundObjectId}/`);
+  }
 }

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Plus, Trash2, Save, RotateCcw, Move, Search } from 'lucide-react';
+import apiService from '../../../../services/api.js';
 
 // Sample isotopes data - in a real app this would come from a database or API
 const SAMPLE_ISOTOPES = [
@@ -26,7 +27,9 @@ export default function GroupSpectrumPanel({
   onValidate, 
   onSaveAs, 
   initialSpectrum = null,
-  existingSpectra = []
+  existingSpectra = [],
+  projectId,
+  onSpectrumCreated
 }) {
   const [position, setPosition] = useState({ x: 350, y: 200 });
   const [isDragging, setIsDragging] = useState(false);
@@ -161,15 +164,36 @@ export default function GroupSpectrumPanel({
     onClose();
   };
 
-  const handleSaveAs = () => {
+  const handleSaveAs = async () => {
     if (!validateName(spectrumData.name)) return;
     if (spectrumData.isotopes.length === 0) {
       alert('At least one isotope must be selected');
       return;
     }
     
-    onSaveAs(spectrumData);
-    onClose();
+    try {
+      const spectrumPayload = {
+        name: spectrumData.name,
+        type: 'group',
+        multiplier: parseFloat(spectrumData.multiplier) || 1.0,
+        lines: [],
+        isotopes: spectrumData.isotopes
+      };
+      
+      const savedSpectrum = await apiService.createSpectrum(projectId, spectrumPayload);
+      
+      // Notify parent about new spectrum
+      if (onSpectrumCreated) {
+        onSpectrumCreated(savedSpectrum);
+      }
+      
+      // Call original onSaveAs
+      onSaveAs(savedSpectrum);
+      onClose();
+    } catch (error) {
+      console.error('Error saving spectrum:', error);
+      alert('Error saving spectrum. Please try again.');
+    }
   };
 
   // Dragging functions

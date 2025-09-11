@@ -5,6 +5,7 @@ import GeometryService from './GeometryService.js';
 import CompositionService from './CompositionService.js';
 import SpectrumService from './SpectrumService.js';
 import VolumeService from './VolumeService.js';
+import SensorService from './SensorService.js';
 import SceneService from './SceneService.js';
 import { DataConverters } from './DataConverters.js';
 
@@ -23,6 +24,7 @@ export default class ApiService extends BaseApiService {
     this.compositions = new CompositionService(baseURL);
     this.spectra = new SpectrumService(baseURL);
     this.volumes = new VolumeService(baseURL);
+    this.sensors = new SensorService(baseURL);
     this.scenes = new SceneService(baseURL);
     
     // Sync token across all services
@@ -38,6 +40,7 @@ export default class ApiService extends BaseApiService {
     this.compositions.token = token;
     this.spectra.token = token;
     this.volumes.token = token;
+    this.sensors.token = token;
     this.scenes.token = token;
   }
 
@@ -205,6 +208,44 @@ export default class ApiService extends BaseApiService {
 
   async updateVolumeName(projectId, volumeId, newName) {
     return this.volumes.updateVolumeName(projectId, volumeId, newName);
+  }
+
+  // Sensor endpoints (delegated to SensorService)
+  async getSensors(projectId) {
+    return this.sensors.getSensors(projectId);
+  }
+
+  async createSensor(projectId, sensorData) {
+    return this.sensors.createSensor(projectId, sensorData);
+  }
+
+  async updateSensor(projectId, sensorId, sensorData) {
+    return this.sensors.updateSensor(projectId, sensorId, sensorData);
+  }
+
+  async deleteSensor(projectId, sensorId) {
+    return this.sensors.deleteSensor(projectId, sensorId);
+  }
+
+  async updateSensorName(projectId, sensorId, newName) {
+    return this.sensors.updateSensorName(projectId, sensorId, newName);
+  }
+
+  // Compound Object endpoints (delegated to SceneService)
+  async getCompoundObjects(projectId) {
+    return this.scenes.getCompoundObjects(projectId);
+  }
+
+  async createCompoundObject(projectId, compoundObjectData) {
+    return this.scenes.createCompoundObject(projectId, compoundObjectData);
+  }
+
+  async updateCompoundObject(projectId, compoundObjectId, compoundObjectData) {
+    return this.scenes.updateCompoundObject(projectId, compoundObjectId, compoundObjectData);
+  }
+
+  async deleteCompoundObject(projectId, compoundObjectId) {
+    return this.scenes.deleteCompoundObject(projectId, compoundObjectId);
   }
 
   // Scene history endpoints (delegated to SceneService)

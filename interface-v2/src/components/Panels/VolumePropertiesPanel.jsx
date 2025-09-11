@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Box, Droplets, Atom, Settings, Copy, Edit2, Trash2 } from 'lucide-react';
+import apiService from '../../services/api.js';
 
 export default function VolumePropertiesPanel({ 
   isVisible, 
@@ -7,7 +8,10 @@ export default function VolumePropertiesPanel({
   volumeData,
   onEdit,
   onDelete,
-  onCopy
+  onCopy,
+  projectId,
+  onVolumeUpdated,
+  onVolumeDeleted
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -63,6 +67,44 @@ export default function VolumePropertiesPanel({
     setIsDragging(false);
   };
 
+  // Handle volume name update
+  const handleNameUpdate = async (newName) => {
+    if (!volumeData?.id || !projectId) return;
+    
+    try {
+      await apiService.updateVolumeName(projectId, volumeData.id, newName);
+      
+      // Notify parent about volume update
+      if (onVolumeUpdated) {
+        onVolumeUpdated({ ...volumeData, name: newName });
+      }
+    } catch (error) {
+      console.error('Error updating volume name:', error);
+      alert('Error updating volume name. Please try again.');
+    }
+  };
+
+  // Handle volume deletion
+  const handleVolumeDelete = async () => {
+    if (!volumeData?.id || !projectId) return;
+    
+    if (confirm(`Are you sure you want to delete volume "${volumeData.userData?.volumeName || volumeData.name}"?`)) {
+      try {
+        await apiService.deleteVolume(projectId, volumeData.id);
+        
+        // Notify parent about volume deletion
+        if (onVolumeDeleted) {
+          onVolumeDeleted(volumeData.id);
+        }
+        
+        onClose();
+      } catch (error) {
+        console.error('Error deleting volume:', error);
+        alert('Error deleting volume. Please try again.');
+      }
+    }
+  };
+
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
@@ -113,6 +155,13 @@ export default function VolumePropertiesPanel({
             title="Edit Properties"
           >
             <Edit2 size={14} />
+          </button>
+          <button
+            onClick={handleVolumeDelete}
+            className="p-1 hover:bg-red-600 rounded text-white"
+            title="Delete Volume"
+          >
+            <Trash2 size={14} />
           </button>
           <button
             onClick={onClose}

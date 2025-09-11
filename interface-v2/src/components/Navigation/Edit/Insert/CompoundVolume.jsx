@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, FolderPlus, Upload, Move, FolderOpen, File, AlertTriangle, Info } from 'lucide-react';
+import apiService from '../../../../services/api';
 
 // Mock compound objects data - in real app this would come from file system or API
 const MOCK_COMPOUND_OBJECTS = [
@@ -38,7 +39,9 @@ export default function CompoundVolume({
   onCancel,
   existingVolumes = [],
   existingCompositions = [],
-  existingSpectra = []
+  existingSpectra = [],
+  projectId,
+  onCompoundObjectImported
 }) {
   const [position, setPosition] = useState({ x: 200, y: 100 });
   const [isDragging, setIsDragging] = useState(false);
@@ -168,21 +171,52 @@ export default function CompoundVolume({
     }
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!selectedObject) return;
     
-    const importData = {
-      compoundObject: selectedObject,
-      position: positionData,
-      conflicts: conflicts,
-      resolvedNames: conflicts.reduce((acc, conflict) => {
-        acc[conflict.originalName] = conflict.suggestedName;
-        return acc;
-      }, {})
-    };
-    
-    onImport(importData);
-    handleCancel();
+    try {
+      // Create compound object in backend
+      const compoundObjectData = {
+        name: selectedObject.name,
+        description: selectedObject.description,
+        file_path: selectedObject.path,
+        file_size: selectedObject.size,
+        category: selectedObject.category || 'Imported',
+        is_template: selectedObject.isExample || false,
+        is_public: false,
+        tags: [],
+        position: positionData,
+        conflicts: conflicts,
+        resolved_names: conflicts.reduce((acc, conflict) => {
+          acc[conflict.originalName] = conflict.suggestedName;
+          return acc;
+        }, {})
+      };
+      
+      // Save compound object to backend
+      const savedCompoundObject = await apiService.createCompoundObject(projectId, compoundObjectData);
+      
+      // Notify parent about imported compound object
+      if (onCompoundObjectImported) {
+        onCompoundObjectImported(savedCompoundObject);
+      }
+      
+      // Call original onImport for local state management
+      onImport({
+        compoundObject: savedCompoundObject,
+        position: positionData,
+        conflicts: conflicts,
+        resolvedNames: conflicts.reduce((acc, conflict) => {
+          acc[conflict.originalName] = conflict.suggestedName;
+          return acc;
+        }, {})
+      });
+      
+      handleCancel();
+    } catch (error) {
+      console.error('Error importing compound object:', error);
+      alert('Error importing compound object. Please try again.');
+    }
   };
 
   const handleCancel = () => {

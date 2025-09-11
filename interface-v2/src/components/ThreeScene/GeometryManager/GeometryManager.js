@@ -1,7 +1,6 @@
 import MaterialManager from './MaterialManager.js';
 import GeometryCreator from './GeometryCreator.js';
 import IndicatorManager from './IndicatorManager.js';
-import CSGManager from './CSGManager.js';
 import ViewManager from './ViewManager.js';
 
 export default class GeometryManager {
@@ -15,7 +14,6 @@ export default class GeometryManager {
     this.materialManager = new MaterialManager(refs, state, callbacks);
     this.geometryCreator = new GeometryCreator(refs, state, callbacks);
     this.indicatorManager = new IndicatorManager(refs, state, callbacks);
-    this.csgManager = new CSGManager(refs, state, callbacks);
     this.viewManager = new ViewManager(refs, state, callbacks);
   }
   
@@ -28,16 +26,14 @@ export default class GeometryManager {
       materialManager: this.materialManager,
       geometryCreator: this.geometryCreator,
       indicatorManager: this.indicatorManager,
-      csgManager: this.csgManager,
       viewManager: this.viewManager,
-      geometryManager: this // Include self-reference for CSG operations
+      geometryManager: this
     };
     
     // Pass modules to all managers
     this.materialManager.setModules(modulesWithManagers);
     this.geometryCreator.setModules(modulesWithManagers);
     this.indicatorManager.setModules(modulesWithManagers);
-    this.csgManager.setModules(modulesWithManagers);
     this.viewManager.setModules(modulesWithManagers);
   }
   
@@ -96,14 +92,6 @@ export default class GeometryManager {
     return this.indicatorManager.addSensorLabel(sensor, name);
   }
   
-  // CSG Operations Methods
-  performCSGOperation(operation, objectA, objectB) {
-    return this.csgManager.performCSGOperation(operation, objectA, objectB);
-  }
-  
-  reduceVolume(targetMesh, reductionPoint) {
-    return this.csgManager.reduceVolume(targetMesh, reductionPoint);
-  }
   
   // View Management Methods
   applyViewMode(mesh, mode) {

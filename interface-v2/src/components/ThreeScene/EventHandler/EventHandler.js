@@ -5,7 +5,6 @@ import { VertexHelpersManager } from './VertexHelpersManager.js';
 import { RotationManager } from './RotationManager.js';
 import { SelectionManager } from './SelectionManager.js';
 import { BoxSelectionManager } from './BoxSelectionManager.js';
-import { CSGManager } from './CSGManager.js';
 import { ContextMenuManager } from './ContextMenuManager.js';
 import { DragDropManager } from './DragDropManager.js';
 import { KeyboardManager } from './KeyboardManager.js';
@@ -36,7 +35,6 @@ export default class EventHandler {
     this.rotationManager = new RotationManager(refs, state, callbacks);
     this.selectionManager = new SelectionManager(refs, state, callbacks);
     this.boxSelectionManager = new BoxSelectionManager(refs, state, callbacks);
-    this.csgManager = new CSGManager(refs, state, callbacks);
     this.contextMenuManager = new ContextMenuManager(refs, state, callbacks);
     this.dragDropManager = new DragDropManager(refs, state, callbacks);
     this.keyboardManager = new KeyboardManager(refs, state, callbacks);
@@ -67,7 +65,6 @@ export default class EventHandler {
       rotationManager: this.rotationManager,
       selectionManager: this.selectionManager,
       boxSelectionManager: this.boxSelectionManager,
-      csgManager: this.csgManager,
       contextMenuManager: this.contextMenuManager,
       dragDropManager: this.dragDropManager,
       keyboardManager: this.keyboardManager,
@@ -80,7 +77,6 @@ export default class EventHandler {
     this.rotationManager.setModules(modulesWithManagers);
     this.selectionManager.setModules(modulesWithManagers);
     this.boxSelectionManager.setModules(modulesWithManagers);
-    this.csgManager.setModules(modulesWithManagers);
     this.contextMenuManager.setModules(modulesWithManagers);
     this.dragDropManager.setModules(modulesWithManagers);
     this.keyboardManager.setModules(modulesWithManagers);
@@ -93,7 +89,6 @@ export default class EventHandler {
     this.rotationManager.initialize();
     this.selectionManager.initialize();
     this.boxSelectionManager.initialize();
-    this.csgManager.initialize();
     this.contextMenuManager.initialize();
     this.dragDropManager.initialize();
     this.keyboardManager.initialize();
@@ -222,11 +217,33 @@ export default class EventHandler {
   }
   
   handleKeyDown(event) {
+    // Ignore keyboard events when typing in input fields, textareas, or contenteditable elements
+    const target = event.target;
+    const isInputField = target.tagName === 'INPUT' || 
+                        target.tagName === 'TEXTAREA' || 
+                        target.contentEditable === 'true' ||
+                        target.isContentEditable;
+    
+    if (isInputField) {
+      return; // Don't process scene keyboard events when typing in forms
+    }
+    
     this.keyState[event.code] = true;
     this.keyboardManager.handleKeyDown(event);
   }
   
   handleKeyUp(event) {
+    // Ignore keyboard events when typing in input fields, textareas, or contenteditable elements
+    const target = event.target;
+    const isInputField = target.tagName === 'INPUT' || 
+                        target.tagName === 'TEXTAREA' || 
+                        target.contentEditable === 'true' ||
+                        target.isContentEditable;
+    
+    if (isInputField) {
+      return; // Don't process scene keyboard events when typing in forms
+    }
+    
     this.keyState[event.code] = false;
     this.keyboardManager.handleKeyUp(event);
   }
@@ -273,8 +290,8 @@ export default class EventHandler {
     
     const object = this.refs.selectedGeometryRef.current;
     
-    // 1. MOVE SELECTED VERTEX HELPERS
-    if (this.vertexHelpersManager.SELECTED) {
+    // 1. MOVE SELECTED VERTEX HELPERS (only if not side scaling)
+    if (this.vertexHelpersManager.SELECTED && !this.vertexHelpersManager.selectedSideHandler) {
       this.vertexHelpersManager.resizePlane.position.copy(this.vertexHelpersManager.SELECTED.position);
       this.vertexHelpersManager.resizePlane.lookAt(this.modules?.cameraController?.getActiveCamera().position);
       const intersects = raycaster.intersectObject(this.vertexHelpersManager.resizePlane);
@@ -298,25 +315,90 @@ export default class EventHandler {
           // Enforce scene boundaries after scaling
           this.floorConstraintManager.enforceFloorConstraint(object);
           
+          // Save history for undo/redo
+          if (this.modules?.historyManager) {
+            this.modules.historyManager.saveToHistory();
+          }
+          
           // Update all vertex helpers positions
           this.vertexHelpersManager.updateVertexHelpersPositions(object);
         } else if (this.vertexHelpersManager.resizeMode === 'edit') {
           // Move the vertex helper
           this.vertexHelpersManager.SELECTED.position.copy(intersects[0].point);
+          
+          // Save history for undo/redo
+          if (this.modules?.historyManager) {
+            this.modules.historyManager.saveToHistory();
+          }
         }
       }
       return;
     }
     
-    // 2. PICK OBJECTS AND VERTEX HELPERS
-    const intersects = raycaster.intersectObjects([object, ...this.vertexHelpersManager.vertexHelpers].filter(Boolean));
+    // Handle side handler scaling (only if not vertex scaling)
+    if (this.vertexHelpersManager.selectedSideHandler && this.vertexHelpersManager.resizeAxis && !this.vertexHelpersManager.SELECTED) {
+      const sideHandler = this.vertexHelpersManager.selectedSideHandler;
+      const object = this.refs.selectedGeometryRef.current;
+      
+      if (!object || !this.vertexHelpersManager.sideScalingStart) return;
+      
+      // Use mouse movement for more intuitive scaling
+      const renderer = this.refs.rendererRef.current;
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2();
+      mouse.x = (event.clientX / rect.width) * 2 - 1;
+      mouse.y = -(event.clientY / rect.height) * 2 + 1;
+      
+      // Calculate mouse movement delta
+      const mouseDelta = {
+        x: mouse.x - (this.vertexHelpersManager.mouseStart?.x || 0),
+        y: mouse.y - (this.vertexHelpersManager.mouseStart?.y || 0)
+      };
+      
+      // Calculate scale factor based on mouse movement
+      const axis = sideHandler.userData.axis;
+      let scaleDelta = 0;
+      
+      // Use different mouse axes for different scaling axes
+      if (axis === 'x') {
+        scaleDelta = mouseDelta.x * 5; // Increased sensitivity for more responsive scaling
+      } else if (axis === 'y') {
+        scaleDelta = -mouseDelta.y * 5; // Invert Y for intuitive scaling
+      } else if (axis === 'z') {
+        scaleDelta = mouseDelta.x * 5; // Use X movement for Z scaling
+      }
+      
+      // Calculate new scale factor
+      const baseScale = this.vertexHelpersManager.sideScalingInitialScale[axis];
+      const newScaleFactor = Math.max(0.1, Math.min(10, 1 + scaleDelta));
+      
+      // Apply side-based scaling
+      this.vertexHelpersManager.scaleObjectFromSide(object, sideHandler, newScaleFactor);
+      
+      // Show scaling feedback during side handler scaling
+      if (!this.transformFeedbackVisible) {
+        this.showTransformFeedback(object, 'scaling');
+      } else {
+        this.updateTransformFeedback(object, 'scaling');
+      }
+      
+      // Enforce scene boundaries after scaling
+      this.floorConstraintManager.enforceFloorConstraint(object);
+      
+      return;
+    }
+    
+    // 2. PICK OBJECTS, VERTEX HELPERS, AND SIDE HANDLERS
+    const intersects = raycaster.intersectObjects([object, ...this.vertexHelpersManager.vertexHelpers, ...this.vertexHelpersManager.sideHandlers].filter(Boolean));
     let metObject = false;
     let metVertex = undefined;
+    let metSideHandler = undefined;
     
     for (let i = 0; i < intersects.length; i++) {
       const result = intersects[i].object;
       if (result === object) metObject = true;
       if (result.userData?.type === 'vertex-helper' && !metVertex) metVertex = result;
+      if (result.userData?.type === 'side-handler' && !metSideHandler) metSideHandler = result;
     }
     
     // Check if mouse is over the resize area (expanded bounding box)
@@ -339,6 +421,9 @@ export default class EventHandler {
     if (metVertex) {
       if (this.vertexHelpersManager.INTERSECTED !== metVertex) this.vertexHelpersManager.INTERSECTED = metVertex;
       document.body.style.cursor = 'move';
+    } else if (metSideHandler) {
+      if (this.vertexHelpersManager.INTERSECTED !== metSideHandler) this.vertexHelpersManager.INTERSECTED = metSideHandler;
+      document.body.style.cursor = 'ew-resize'; // Indicate side resizing
     } else {
       this.vertexHelpersManager.INTERSECTED = null;
       document.body.style.cursor = 'auto';
@@ -346,8 +431,8 @@ export default class EventHandler {
     
     // Show/hide vertex helpers based on hover (only for resize tool)
     if (this.state.selectedToolRef.current === 'resize') {
-      // Keep vertex helpers visible when hovering over object, vertex helpers, or resize plane
-      if ((metVertex || metObject || metResizePlane) && !this.vertexHelpersManager.mouseDown) {
+      // Keep vertex helpers visible when hovering over object, vertex helpers, side handlers, or resize plane
+      if ((metVertex || metSideHandler || metObject || metResizePlane) && !this.vertexHelpersManager.mouseDown) {
         object.material.opacity = 0.5;
         this.vertexHelpersManager.showVertexHelpers();
       } else {
@@ -366,10 +451,8 @@ export default class EventHandler {
 
   handlePointerDown(event) {
     const tool = this.state.selectedToolRef.current;
-    const isCSGTool = tool && tool.startsWith('csg-');
-    
     // Only allow object selection when select, pan, resize, rotate, or target tool is active
-    if (!isCSGTool && tool !== 'select' && tool !== 'pan' && tool !== 'resize' && tool !== 'rotate' && tool !== 'target') return;
+    if (tool !== 'select' && tool !== 'pan' && tool !== 'resize' && tool !== 'rotate' && tool !== 'target') return;
     
     // For select and resize tools, only allow left mouse button clicks
     if ((tool === 'select' || tool === 'resize') && event.button !== 0) return;
@@ -394,7 +477,7 @@ export default class EventHandler {
       }, 150); // 150ms delay
     }
     
-    // Check if vertex helper was clicked
+    // Check if vertex helper or side handler was clicked
     if (this.vertexHelpersManager.INTERSECTED && this.vertexHelpersManager.INTERSECTED.userData?.type === 'vertex-helper') {
       // Disable orbit controls during vertex manipulation
       const orbitControls = this.modules?.cameraController?.getOrbitControls();
@@ -402,6 +485,27 @@ export default class EventHandler {
         orbitControls.enabled = false;
       }
       this.vertexHelpersManager.SELECTED = this.vertexHelpersManager.INTERSECTED;
+      return;
+    }
+    
+    // Check if side handler was clicked
+    if (this.vertexHelpersManager.INTERSECTED && this.vertexHelpersManager.INTERSECTED.userData?.type === 'side-handler') {
+      // Disable orbit controls during side manipulation
+      const orbitControls = this.modules?.cameraController?.getOrbitControls();
+      if (orbitControls) {
+        orbitControls.enabled = false;
+      }
+      
+      // Store initial mouse position for fallback scaling
+      const renderer = this.refs.rendererRef.current;
+      const rect = renderer.domElement.getBoundingClientRect();
+      this.vertexHelpersManager.mouseStart = {
+        x: (event.clientX - rect.left) / rect.width * 2 - 1,
+        y: -(event.clientY - rect.top) / rect.height * 2 + 1
+      };
+      
+      // Initialize side scaling
+      this.vertexHelpersManager.beginSideScaling(this.refs.selectedGeometryRef.current, this.vertexHelpersManager.INTERSECTED);
       return;
     }
     
@@ -443,11 +547,6 @@ export default class EventHandler {
         return;
       }
       
-      // Handle CSG mode
-      if (isCSGTool && this.state.csgMode) {
-        this.csgManager.handleCSGSelection(object, tool);
-        return;
-      }
       
       // Regular tool handling
       if (tool === 'target') {
@@ -484,9 +583,7 @@ export default class EventHandler {
         this.selectionManager.selectGeometry(object, event.ctrlKey);
       }
     } else {
-      if (!this.state.csgMode) {
-        this.selectionManager.deselect();
-      }
+      this.selectionManager.deselect();
     }
   }
   
@@ -529,6 +626,22 @@ export default class EventHandler {
         this.hideTransformFeedback();
       }
     }
+    
+    if (this.vertexHelpersManager.selectedSideHandler) {
+      // Re-enable orbit controls
+      const orbitControls = this.modules?.cameraController?.getOrbitControls();
+      if (orbitControls) {
+        orbitControls.enabled = true;
+      }
+      // End side scaling and clean up
+      this.vertexHelpersManager.endSideScaling();
+      document.body.style.cursor = 'auto';
+      
+      // Hide transform feedback when side handler interaction ends
+      if (this.transformFeedbackVisible) {
+        this.hideTransformFeedback();
+      }
+    }
   }
   
   handleDragOver(e) {
@@ -564,7 +677,6 @@ export default class EventHandler {
     this.rotationManager.handleToolChange(selectedTool);
     this.selectionManager.handleToolChange(selectedTool);
     this.boxSelectionManager.handleToolChange(selectedTool);
-    this.csgManager.handleToolChange(selectedTool);
     this.contextMenuManager.handleToolChange(selectedTool);
     this.dragDropManager.handleToolChange(selectedTool);
     this.keyboardManager.handleToolChange(selectedTool);
@@ -690,7 +802,6 @@ export default class EventHandler {
     this.rotationManager.cleanup();
     this.selectionManager.cleanup();
     this.boxSelectionManager.cleanup();
-    this.csgManager.cleanup();
     this.contextMenuManager.cleanup();
     this.dragDropManager.cleanup();
     this.keyboardManager.cleanup();

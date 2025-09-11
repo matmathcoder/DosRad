@@ -37,6 +37,7 @@ urlpatterns = [
     # Sensors
     path('<int:project_id>/sensors/', views.SensorListView.as_view(), name='sensor-list'),
     path('<int:project_id>/sensors/<int:pk>/', views.SensorDetailView.as_view(), name='sensor-detail'),
+    path('<int:project_id>/sensors/<int:sensor_id>/update-name/', views.update_sensor_name, name='update-sensor-name'),
     
     # CSG operations
     path('<int:project_id>/csg-operations/', views.CSGOperationListView.as_view(), name='csg-operation-list'),

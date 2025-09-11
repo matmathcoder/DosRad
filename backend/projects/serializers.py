@@ -68,17 +68,23 @@ class VolumeCreateSerializer(serializers.ModelSerializer):
         composition_data = validated_data.pop('composition', None)
         spectrum_data = validated_data.pop('spectrum', None)
         
-        # Create geometry
+        # Get project from validated_data (set by perform_create)
+        project = validated_data.get('project')
+        
+        # Create geometry with project
+        geometry_data['project'] = project
         geometry = Geometry.objects.create(**geometry_data)
         
         # Create composition if provided
         composition = None
         if composition_data:
+            composition_data['project'] = project
             composition = Composition.objects.create(**composition_data)
         
         # Create spectrum if provided
         spectrum = None
         if spectrum_data:
+            spectrum_data['project'] = project
             spectrum = Spectrum.objects.create(**spectrum_data)
         
         # Create volume

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Plus, Trash2, Save, RotateCcw, Move, Edit3 } from 'lucide-react';
+import apiService from '../../../../services/api.js';
 
 export default function LineSpectrumPanel({ 
   isVisible, 
@@ -7,7 +8,9 @@ export default function LineSpectrumPanel({
   onValidate, 
   onSaveAs, 
   initialSpectrum = null,
-  existingSpectra = []
+  existingSpectra = [],
+  projectId,
+  onSpectrumCreated
 }) {
   const [position, setPosition] = useState({ x: 300, y: 150 });
   const [isDragging, setIsDragging] = useState(false);
@@ -170,15 +173,36 @@ export default function LineSpectrumPanel({
     onClose();
   };
 
-  const handleSaveAs = () => {
+  const handleSaveAs = async () => {
     if (!validateName(spectrumData.name)) return;
     if (spectrumData.lines.length === 0) {
       alert('At least one spectral line is required');
       return;
     }
     
-    onSaveAs(spectrumData);
-    onClose();
+    try {
+      const spectrumPayload = {
+        name: spectrumData.name,
+        type: 'line',
+        multiplier: parseFloat(spectrumData.multiplier) || 1.0,
+        lines: spectrumData.lines,
+        isotopes: []
+      };
+      
+      const savedSpectrum = await apiService.createSpectrum(projectId, spectrumPayload);
+      
+      // Notify parent about new spectrum
+      if (onSpectrumCreated) {
+        onSpectrumCreated(savedSpectrum);
+      }
+      
+      // Call original onSaveAs
+      onSaveAs(savedSpectrum);
+      onClose();
+    } catch (error) {
+      console.error('Error saving spectrum:', error);
+      alert('Error saving spectrum. Please try again.');
+    }
   };
 
   // Dragging functions

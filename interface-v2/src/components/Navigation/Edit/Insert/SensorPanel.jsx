@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Plus, Trash2, Save, RotateCcw, Move, AlertTriangle, Info } from 'lucide-react';
+import apiService from '../../../../services/api';
 
 // Response function options
 const RESPONSE_FUNCTIONS = [
@@ -26,7 +27,9 @@ export default function SensorPanel({
   onSaveAs, 
   initialSensor = null,
   existingSensors = [],
-  existingCompositions = []
+  existingCompositions = [],
+  projectId,
+  onSensorCreated
 }) {
   const [position, setPosition] = useState({ x: 300, y: 150 });
   const [isDragging, setIsDragging] = useState(false);
@@ -152,7 +155,7 @@ export default function SensorPanel({
     }
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!validateName(sensorData.name)) return;
     if (!validateCoordinates(sensorData.coordinates)) return;
     
@@ -166,15 +169,36 @@ export default function SensorPanel({
       setWarningMessage(`Sensor "${sensorData.name}" data has been changed. Do you want to update it?`);
       setShowWarning(true);
     } else {
-      // Add new sensor
-      const newSensor = {
-        ...sensorData,
-        id: Date.now(),
-        createdAt: new Date().toISOString()
-      };
-      
-      onSaveAs(newSensor);
-      handleCancel();
+      try {
+        // Prepare sensor data for backend
+        const sensorPayload = {
+          name: sensorData.name,
+          coordinates: sensorData.coordinates,
+          response_function: sensorData.responseFunction,
+          energy_range: {
+            min: parseFloat(sensorData.energyRange.min) || 0,
+            max: parseFloat(sensorData.energyRange.max) || 0
+          },
+          buildup_type: sensorData.buildupType,
+          selected_composition: sensorData.selectedComposition,
+          description: sensorData.description || ''
+        };
+        
+        // Save to backend
+        const savedSensor = await apiService.createSensor(projectId, sensorPayload);
+        
+        // Notify parent about new sensor
+        if (onSensorCreated) {
+          onSensorCreated(savedSensor);
+        }
+        
+        // Call original onSaveAs for local state management
+        onSaveAs(savedSensor);
+        handleCancel();
+      } catch (error) {
+        console.error('Error saving sensor:', error);
+        alert('Error saving sensor. Please try again.');
+      }
     }
   };
 

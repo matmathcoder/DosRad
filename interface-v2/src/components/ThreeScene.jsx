@@ -9,6 +9,7 @@ import PersistenceManager from './ThreeScene/PersistenceManager';
 import ViewManager from './ThreeScene/ViewManager';
 import EventHandler from './ThreeScene/EventHandler/EventHandler';
 import PhysicsSimulator from './ThreeScene/PhysicsSimulator/PhysicsSimulator';
+import { LinksManager } from './ThreeScene/LinksManager';
 import ContextMenu from './ThreeScene/ContextMenu';
 import MeshPropertiesPanel from './Panels/MeshPropertiesPanel';
 import ScalingFeedback from './ThreeScene/ScalingFeedback';
@@ -66,6 +67,7 @@ export default function ThreeScene({
   const [transformFeedbackVisible, setTransformFeedbackVisible] = useState(false);
   const [transformObject, setTransformObject] = useState(null);
   const [transformFeedbackType, setTransformFeedbackType] = useState('scaling');
+  const [transformFeedbackKey, setTransformFeedbackKey] = useState(0);
   
   // Tool ref
   const selectedToolRef = useRef('select');
@@ -81,6 +83,7 @@ export default function ThreeScene({
   const viewManager = useRef();
   const physicsSimulator = useRef();
   const eventHandler = useRef();
+  const linksManager = useRef();
   
   // Initialize modules
   useEffect(() => {
@@ -183,6 +186,8 @@ export default function ThreeScene({
         if (feedbackType) {
           setTransformFeedbackType(feedbackType);
         }
+        // Force re-render by updating the key
+        setTransformFeedbackKey(prev => prev + 1);
       },
       // Legacy callbacks for backward compatibility
       onScalingFeedbackShow: (object) => {
@@ -211,6 +216,7 @@ export default function ThreeScene({
     viewManager.current = new ViewManager(sharedRefs, sharedState, callbacks);
     physicsSimulator.current = new PhysicsSimulator(sharedRefs, sharedState, callbacks);
     eventHandler.current = new EventHandler(sharedRefs, sharedState, callbacks);
+    linksManager.current = new LinksManager();
     
     // Pass module references to each other for inter-module communication
     const modules = {
@@ -222,7 +228,8 @@ export default function ThreeScene({
       persistenceManager: persistenceManager.current,
       viewManager: viewManager.current,
       physicsSimulator: physicsSimulator.current,
-      eventHandler: eventHandler.current
+      eventHandler: eventHandler.current,
+      linksManager: linksManager.current
     };
     
     // Set module references for inter-module communication
@@ -266,6 +273,191 @@ export default function ThreeScene({
     // Setup auto-save
     persistenceManager.current.setupAutoSave();
     
+    // Expose window functions that need access to callbacks and refs
+    // Expose function to update geometry position
+    window.updateGeometryPosition = (geometryId, newPosition) => {
+      try {
+        const geometries = geometriesRef.current;
+        const geometry = geometries.find(g => g.userData?.id === geometryId);
+        if (geometry) {
+          geometry.position.set(newPosition.x, newPosition.y, newPosition.z);
+          geometry.updateMatrixWorld();
+          
+          // Trigger geometry change callback
+          if (callbacks.onGeometryChanged) {
+            callbacks.onGeometryChanged(geometryId, {
+              position: newPosition,
+              scale: geometry.scale,
+              rotation: geometry.rotation
+            });
+          }
+          
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error updating geometry position:', error);
+        return false;
+      }
+    };
+
+    // Expose function to update geometry scale
+    window.updateGeometryScale = (geometryId, newScale) => {
+      try {
+        const geometries = geometriesRef.current;
+        const geometry = geometries.find(g => g.userData?.id === geometryId);
+        if (geometry) {
+          geometry.scale.set(newScale.x, newScale.y, newScale.z);
+          geometry.updateMatrixWorld();
+          
+          // Trigger geometry change callback
+          if (callbacks.onGeometryChanged) {
+            callbacks.onGeometryChanged(geometryId, {
+              position: geometry.position,
+              scale: newScale,
+              rotation: geometry.rotation
+            });
+          }
+          
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error updating geometry scale:', error);
+        return false;
+      }
+    };
+
+    // Expose function to update geometry rotation
+    window.updateGeometryRotation = (geometryId, newRotation) => {
+      try {
+        const geometries = geometriesRef.current;
+        const geometry = geometries.find(g => g.userData?.id === geometryId);
+        if (geometry) {
+          geometry.rotation.set(newRotation.x, newRotation.y, newRotation.z);
+          geometry.updateMatrixWorld();
+          
+          // Update vertex helpers if they exist
+          if (eventHandler.current) {
+            eventHandler.current.updateVertexHelpersPositions(geometry);
+          }
+          
+          // Trigger geometry change callback
+          if (callbacks.onGeometryChanged) {
+            callbacks.onGeometryChanged(geometryId, {
+              position: geometry.position,
+              scale: geometry.scale,
+              rotation: newRotation
+            });
+          }
+          
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error updating geometry rotation:', error);
+        return false;
+      }
+    };
+
+    // Expose function to update geometry coordinates (general)
+    window.updateGeometryCoordinates = (geometryId, coordinates) => {
+      try {
+        const geometries = geometriesRef.current;
+        const geometry = geometries.find(g => g.userData?.id === geometryId);
+        if (geometry) {
+          // Update position
+          geometry.position.set(coordinates.x1, coordinates.y1, coordinates.z1);
+          
+          // Update scale based on geometry type
+          const geometryType = geometry.userData?.type;
+          if (geometryType === 'box' || geometryType === 'cube') {
+            geometry.scale.set(coordinates.x2, coordinates.y2, coordinates.z2);
+          } else if (geometryType === 'sphere') {
+            geometry.scale.set(coordinates.r1, coordinates.r1, coordinates.r1);
+          } else if (geometryType === 'cylinder' || geometryType === 'cone') {
+            geometry.scale.set(coordinates.r1, coordinates.r1, coordinates.z2);
+          }
+          
+          geometry.updateMatrixWorld();
+          
+          // Trigger geometry change callback to update parent state
+          if (callbacks.onGeometryChanged) {
+            callbacks.onGeometryChanged(geometryId, {
+              position: { x: coordinates.x1, y: coordinates.y1, z: coordinates.z1 },
+              scale: geometry.scale,
+              rotation: geometry.rotation
+            });
+          }
+          
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error updating geometry coordinates:', error);
+        return false;
+      }
+    };
+
+    // Expose LinksManager functions
+    window.setGeometryLinks = (geometryId, linksData) => {
+      try {
+        if (linksManager.current) {
+          linksManager.current.setLinks(geometryId, linksData);
+          
+          // Register geometry if not already registered
+          const geometries = geometriesRef.current;
+          const geometry = geometries.find(g => g.userData?.id === geometryId);
+          if (geometry) {
+            linksManager.current.registerGeometry(geometryId, geometry);
+          }
+          
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error setting geometry links:', error);
+        return false;
+      }
+    };
+
+    window.getGeometryLinks = (geometryId) => {
+      try {
+        if (linksManager.current) {
+          return linksManager.current.getLinks(geometryId);
+        }
+        return null;
+      } catch (error) {
+        console.error('Error getting geometry links:', error);
+        return null;
+      }
+    };
+
+    window.getAvailableVolumes = () => {
+      try {
+        if (linksManager.current) {
+          return linksManager.current.getAvailableVolumes();
+        }
+        return [];
+      } catch (error) {
+        console.error('Error getting available volumes:', error);
+        return [];
+      }
+    };
+
+    window.updateGeometryFromLinks = (geometryId) => {
+      try {
+        if (linksManager.current) {
+          linksManager.current.updateGeometryFromLinks(geometryId);
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error updating geometry from links:', error);
+        return false;
+      }
+    };
+    
     // Cleanup
     return () => {
       sceneManager.current?.cleanup();
@@ -286,6 +478,11 @@ export default function ThreeScene({
       const createGeometryFunction = (geometryType) => {
         const mesh = geometryManager.current.createGeometry(geometryType);
         if (mesh && eventHandler.current) {
+          // Register geometry with LinksManager
+          if (linksManager.current && mesh.userData?.id) {
+            linksManager.current.registerGeometry(mesh.userData.id, mesh);
+          }
+          
           // Auto-select the newly created geometry with a small delay to ensure it's in scene
           setTimeout(() => {
             eventHandler.current.selectGeometry(mesh);
@@ -455,6 +652,11 @@ export default function ThreeScene({
         try {
           const geometry = geometryManager.current.createGeometryFromData(objData);
           if (geometry && eventHandler.current) {
+            // Register geometry with LinksManager
+            if (linksManager.current && geometry.userData?.id) {
+              linksManager.current.registerGeometry(geometry.userData.id, geometry);
+            }
+            
             // Auto-select the newly created geometry
             eventHandler.current.selectGeometry(geometry);
             
@@ -553,99 +755,6 @@ export default function ThreeScene({
           return false;
         }
       };
-      
-      // Expose function to update geometry position
-      window.updateGeometryPosition = (geometryId, newPosition) => {
-        try {
-          const geometries = geometriesRef.current;
-          const geometry = geometries.find(g => g.userData?.id === geometryId);
-          if (geometry) {
-            geometry.position.set(newPosition.x, newPosition.y, newPosition.z);
-            geometry.updateMatrixWorld();
-            
-            // Trigger geometry change callback
-            if (callbacks.onGeometryChanged) {
-              callbacks.onGeometryChanged(geometryId, {
-                position: newPosition,
-                scale: geometry.scale,
-                rotation: geometry.rotation
-              });
-            }
-            
-            return true;
-          }
-          return false;
-        } catch (error) {
-          console.error('Error updating geometry position:', error);
-          return false;
-        }
-      };
-      
-      // Expose function to update geometry scale
-      window.updateGeometryScale = (geometryId, newScale) => {
-        try {
-          const geometries = geometriesRef.current;
-          const geometry = geometries.find(g => g.userData?.id === geometryId);
-          if (geometry) {
-            geometry.scale.set(newScale.x, newScale.y, newScale.z);
-            geometry.updateMatrixWorld();
-            
-            // Trigger geometry change callback
-            if (callbacks.onGeometryChanged) {
-              callbacks.onGeometryChanged(geometryId, {
-                position: geometry.position,
-                scale: newScale,
-                rotation: geometry.rotation
-              });
-            }
-            
-            return true;
-          }
-          return false;
-        } catch (error) {
-          console.error('Error updating geometry scale:', error);
-          return false;
-        }
-      };
-      
-      // Expose function to update geometry coordinates (general)
-      window.updateGeometryCoordinates = (geometryId, coordinates) => {
-        try {
-          const geometries = geometriesRef.current;
-          const geometry = geometries.find(g => g.userData?.id === geometryId);
-          if (geometry) {
-            // Update position
-            geometry.position.set(coordinates.x1, coordinates.y1, coordinates.z1);
-            
-            // Update scale based on geometry type
-            const geometryType = geometry.userData?.type;
-            if (geometryType === 'box' || geometryType === 'cube') {
-              geometry.scale.set(coordinates.x2, coordinates.y2, coordinates.z2);
-            } else if (geometryType === 'sphere') {
-              geometry.scale.set(coordinates.r1, coordinates.r1, coordinates.r1);
-            } else if (geometryType === 'cylinder' || geometryType === 'cone') {
-              geometry.scale.set(coordinates.r1, coordinates.r1, coordinates.z2);
-            }
-            
-            geometry.updateMatrixWorld();
-            
-            // Trigger geometry change callback to update parent state
-            if (callbacks.onGeometryChanged) {
-              callbacks.onGeometryChanged(geometryId, {
-                position: { x: coordinates.x1, y: coordinates.y1, z: coordinates.z1 },
-                scale: geometry.scale,
-                rotation: geometry.rotation
-              });
-            }
-            
-            return true;
-          }
-          return false;
-        } catch (error) {
-          console.error('Error updating geometry coordinates:', error);
-          return false;
-        }
-      };
     }
   }, [viewMode, materialMode]);
 
@@ -708,9 +817,31 @@ export default function ThreeScene({
       
       {/* Transform Feedback */}
       <ScalingFeedback
+        key={transformFeedbackKey}
         isVisible={transformFeedbackVisible}
         object={transformObject}
         feedbackType={transformFeedbackType}
+        onRotationChange={(newRotation) => {
+          if (selectedGeometryRef.current) {
+            // Apply the new rotation to the selected object
+            selectedGeometryRef.current.rotation.set(newRotation.x, newRotation.y, newRotation.z);
+            
+            // Update vertex helpers positions if they exist
+            if (eventHandlerRef.current) {
+              eventHandlerRef.current.updateVertexHelpersPositions(selectedGeometryRef.current);
+            }
+            
+            // Save to history
+            if (historyManagerRef.current) {
+              historyManagerRef.current.saveToHistory();
+            }
+            
+            // Auto-save scene
+            if (persistenceManagerRef.current) {
+              persistenceManagerRef.current.saveScene();
+            }
+          }
+        }}
       />
     </div>
   );

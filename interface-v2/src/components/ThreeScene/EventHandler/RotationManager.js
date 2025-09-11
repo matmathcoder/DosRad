@@ -119,6 +119,9 @@ export class RotationManager {
     // Normalize the quaternion to prevent drift
     object.quaternion.normalize();
 
+    // Update the rotation property from quaternion for feedback display
+    object.rotation.setFromQuaternion(object.quaternion);
+
     // Update matrices
     object.updateMatrix();
     object.updateMatrixWorld(true);
@@ -143,6 +146,18 @@ export class RotationManager {
         y: object.rotation.y,
         z: object.rotation.z
       };
+    }
+
+    // Show rotation feedback during rotation
+    if (!this.modules?.eventHandler?.transformFeedbackVisible) {
+      this.modules?.eventHandler?.showTransformFeedback(object, 'rotation');
+    } else {
+      this.modules?.eventHandler?.updateTransformFeedback(object, 'rotation');
+    }
+    
+    // Force update the feedback display for real-time updates
+    if (this.modules?.eventHandler?.callbacks?.onTransformFeedbackUpdate) {
+      this.modules.eventHandler.callbacks.onTransformFeedbackUpdate(object, 'rotation');
     }
 
     // Update last mouse position
@@ -170,6 +185,11 @@ export class RotationManager {
     if (object?.material) {
       const originalColor = object.userData.originalColor;
       if (originalColor) object.material.color.setHex(originalColor);
+    }
+
+    // Hide rotation feedback
+    if (this.modules?.eventHandler?.transformFeedbackVisible) {
+      this.modules.eventHandler.hideTransformFeedback();
     }
 
     // save history

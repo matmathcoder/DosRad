@@ -30,7 +30,12 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
     x1: 0, y1: 0, z1: 0, x2: 0, y2: 0, z2: 0, r1: 0, r2: 0
   });
 
-  // Initialize coordinates when selectedGeometry changes
+  // Rotation data (in degrees)
+  const [rotation, setRotation] = useState({
+    x: 0, y: 0, z: 0
+  });
+
+  // Initialize coordinates and rotation when selectedGeometry changes
   useEffect(() => {
     if (selectedGeometry) {
       // Map the selected geometry data to coordinate fields
@@ -57,6 +62,23 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
       }
 
       setCoordinates(newCoordinates);
+
+      // Initialize rotation data (convert from radians to degrees)
+      const newRotation = {
+        x: selectedGeometry.rotation?.x ? (selectedGeometry.rotation.x * 180) / Math.PI : 0,
+        y: selectedGeometry.rotation?.y ? (selectedGeometry.rotation.y * 180) / Math.PI : 0,
+        z: selectedGeometry.rotation?.z ? (selectedGeometry.rotation.z * 180) / Math.PI : 0
+      };
+
+      setRotation(newRotation);
+
+      // Load existing links
+      if (window.getGeometryLinks) {
+        const existingLinks = window.getGeometryLinks(selectedGeometry.id);
+        if (existingLinks) {
+          setLinks(existingLinks);
+        }
+      }
     }
   }, [selectedGeometry]);
 
@@ -167,14 +189,49 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
     }
   };
 
-  const handleLinkChange = (field, property, value) => {
-    setLinks(prev => ({
+  const handleRotationChange = (axis, value) => {
+    const newValue = parseFloat(value) || 0;
+    setRotation(prev => ({
       ...prev,
+      [axis]: newValue
+    }));
+
+    // Real-time update to 3D scene
+    if (selectedGeometry && window.updateGeometryRotation) {
+      const newRotation = {
+        ...rotation,
+        [axis]: newValue
+      };
+      // Convert degrees to radians for the 3D scene
+      const rotationRadians = {
+        x: (newRotation.x * Math.PI) / 180,
+        y: (newRotation.y * Math.PI) / 180,
+        z: (newRotation.z * Math.PI) / 180
+      };
+      window.updateGeometryRotation(selectedGeometry.id, rotationRadians);
+    }
+  };
+
+  const handleLinkChange = (field, property, value) => {
+    const newLinks = {
+      ...links,
       [field]: {
-        ...prev[field],
+        ...links[field],
         [property]: property === 'distance' ? (parseFloat(value) || 0) : value
       }
-    }));
+    };
+    
+    setLinks(newLinks);
+
+    // Real-time update to 3D scene
+    if (selectedGeometry && window.setGeometryLinks) {
+      window.setGeometryLinks(selectedGeometry.id, newLinks);
+      
+      // Update geometry from links
+      if (window.updateGeometryFromLinks) {
+        window.updateGeometryFromLinks(selectedGeometry.id);
+      }
+    }
   };
 
   const handleDeltaChange = (field, property, value) => {
@@ -269,6 +326,52 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
           ))}
         </div>
 
+        {/* Rotation Section */}
+        <div className="mt-4 pt-3 border-t border-neutral-600">
+          <h4 className="text-sm font-semibold text-white mb-3">Rotation (degrees)</h4>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-neutral-300 mb-1">
+                X Rotation (°)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={rotation.x}
+                onChange={(e) => handleRotationChange('x', e.target.value)}
+                className="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-xs focus:border-neutral-400 focus:outline-none"
+                placeholder="0.0"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-neutral-300 mb-1">
+                Y Rotation (°)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={rotation.y}
+                onChange={(e) => handleRotationChange('y', e.target.value)}
+                className="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-xs focus:border-neutral-400 focus:outline-none"
+                placeholder="0.0"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-neutral-300 mb-1">
+                Z Rotation (°)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={rotation.z}
+                onChange={(e) => handleRotationChange('z', e.target.value)}
+                className="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-xs focus:border-neutral-400 focus:outline-none"
+                placeholder="0.0"
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="text-xs text-neutral-400 bg-neutral-750 rounded p-2">
           <div className="mb-1">
             <strong>Coordinates for {selectedGeometry?.type}:</strong>
@@ -309,6 +412,10 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
         </div>
       );
     }
+
+    // Get available volumes for linking
+    const availableVolumes = window.getAvailableVolumes ? window.getAvailableVolumes() : [];
+    const filteredVolumes = availableVolumes.filter(volume => volume.id !== selectedGeometry.id);
 
     return (
       <div className="space-y-3">
@@ -357,9 +464,9 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
                     className="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-xs focus:border-neutral-400 focus:outline-none"
                   >
                     <option value="">Select volume...</option>
-                    {existingVolumes.map((volume, index) => (
+                    {filteredVolumes.map((volume, index) => (
                       <option key={index} value={volume.id}>
-                        {volume.type} - {volume.id}
+                        {volume.name} ({volume.type})
                       </option>
                     ))}
                   </select>
@@ -600,9 +707,37 @@ export default function GeometryPanel({ isOpen, onClose, selectedGeometry, exist
       }
     }
 
+    // Apply rotation changes
+    if (window.updateGeometryRotation) {
+      const rotationRadians = {
+        x: (rotation.x * Math.PI) / 180,
+        y: (rotation.y * Math.PI) / 180,
+        z: (rotation.z * Math.PI) / 180
+      };
+      const success = window.updateGeometryRotation(selectedGeometry.id, rotationRadians);
+      if (success) {
+      } else {
+        console.error('Failed to update geometry rotation');
+      }
+    }
+
+    // Apply links changes
+    if (window.setGeometryLinks) {
+      const success = window.setGeometryLinks(selectedGeometry.id, links);
+      if (success) {
+        // Update geometry from links
+        if (window.updateGeometryFromLinks) {
+          window.updateGeometryFromLinks(selectedGeometry.id);
+        }
+      } else {
+        console.error('Failed to update geometry links');
+      }
+    }
+
     const geometryData = {
       type: selectedGeometry?.type,
       coordinates,
+      rotation,
       links,
       deltas,
       predominatingVolume: intersectionWarning ? predominatingVolume : null

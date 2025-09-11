@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Save, RotateCcw, Move, Edit, Plus, Grid3X3 } from 'lucide-react';
 import collisionDetector from '../../../../utils/collisionDetection';
 import MeshPanel from './MeshPanel';
+import apiService from '../../../../services/api.js';
 
 export default function VolumeForm({ 
   isVisible, 
@@ -11,7 +12,11 @@ export default function VolumeForm({
   onShowLineSpectrumPanel, 
   onShowGroupSpectrumPanel,
   onCompositionChange,
-  onSpectrumChange
+  onSpectrumChange,
+  projectId,
+  onVolumeCreated,
+  onCompositionCreated,
+  onSpectrumCreated
 }) {
   const [formData, setFormData] = useState({
     volume: '',
@@ -30,6 +35,14 @@ export default function VolumeForm({
 
   // Panel visibility is now managed by parent component
   const [showMeshPanel, setShowMeshPanel] = useState(false);
+  
+  // Error state
+  const [error, setError] = useState(null);
+  
+  // Debug: Log projectId changes
+  useEffect(() => {
+    console.log('VolumeForm projectId changed to:', projectId);
+  }, [projectId]);
 
   // Mock data - in real app this would come from database/API
   const [existingCompositions] = useState([
@@ -60,9 +73,98 @@ export default function VolumeForm({
     }));
   };
 
-  const handleSave = () => {
- onSave(formData);
-    handleReset();
+  const handleSave = async () => {
+    try {
+      // Debug: Check projectId value
+      console.log('VolumeForm handleSave - projectId:', projectId);
+      
+      if (!projectId) {
+        setError('No project selected. Please load a project first.');
+        return;
+      }
+      
+      // Validate that composition and spectrum are selected
+      if (!formData.composition) {
+        setError('Please select or create a composition');
+        return;
+      }
+      
+      if (!formData.spectrum) {
+        setError('Please select or create a spectrum');
+        return;
+      }
+
+      // Create geometry data
+      const geometryData = {
+        name: formData.volume,
+        geometry_type: formData.geometryType,
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        scale: { x: 1, y: 1, z: 1 },
+        color: '#888888',
+        opacity: 1.0,
+        transparent: false,
+        geometry_parameters: {},
+        user_data: {}
+      };
+
+      // Prepare composition data for nested creation
+      const compositionData = {
+        name: formData.composition.name,
+        density: parseFloat(formData.composition.density) || 0,
+        color: formData.composition.color,
+        elements: formData.composition.elements || []
+      };
+      
+      // Prepare spectrum data for nested creation
+      const spectrumData = {
+        name: formData.spectrum.name,
+        spectrum_type: formData.spectrum.type || 'line',
+        multiplier: parseFloat(formData.spectrum.multiplier) || 1.0,
+        lines: formData.spectrum.lines || [],
+        isotopes: formData.spectrum.isotopes || []
+      };
+
+      // Create volume data with nested composition and spectrum
+      const volumeData = {
+        volume_name: formData.volume,
+        volume_type: formData.volumeType,
+        is_source: formData.isSource,
+        real_density: parseFloat(formData.realDensity) || 0,
+        tolerance: parseFloat(formData.tolerance) || 0,
+        gamma_selection_mode: formData.gammaSelectionMode,
+        calculation_mode: formData.calculation,
+        geometry: geometryData,
+        composition: compositionData,
+        spectrum: spectrumData
+      };
+
+      // Save volume to backend
+      console.log('Creating volume with projectId:', projectId, 'data:', volumeData);
+      const savedVolume = await apiService.createVolume(projectId, volumeData);
+      
+      // Notify parent about new volume, composition, and spectrum
+      if (onVolumeCreated) {
+        onVolumeCreated(savedVolume);
+      }
+      
+      // Notify about created composition and spectrum
+      if (onCompositionCreated && savedVolume.composition) {
+        onCompositionCreated(savedVolume.composition);
+      }
+      
+      if (onSpectrumCreated && savedVolume.spectrum) {
+        onSpectrumCreated(savedVolume.spectrum);
+      }
+
+      // Call original onSave for 3D scene integration
+      onSave(formData);
+      
+      handleReset();
+    } catch (error) {
+      console.error('Error saving volume:', error);
+      alert('Error saving volume. Please try again.');
+    }
   };
 
   const handleReset = () => {
@@ -94,9 +196,28 @@ export default function VolumeForm({
     onCompositionChange && onCompositionChange(compositionData);
   };
 
-  const handleCompositionStore = (compositionData) => {
-    // In real app, this would save to database
- handleCompositionUse(compositionData);
+  const handleCompositionStore = async (compositionData) => {
+    try {
+      const compositionPayload = {
+        name: compositionData.name,
+        density: parseFloat(compositionData.density) || 0,
+        color: compositionData.color,
+        elements: compositionData.elements || []
+      };
+      
+      const savedComposition = await apiService.createComposition(projectId, compositionPayload);
+      
+      // Notify parent about new composition
+      if (onCompositionCreated) {
+        onCompositionCreated(savedComposition);
+      }
+      
+      // Use the saved composition
+      handleCompositionUse(savedComposition);
+    } catch (error) {
+      console.error('Error saving composition:', error);
+      alert('Error saving composition. Please try again.');
+    }
   };
 
   const handleCompositionSelect = (compositionName) => {
@@ -117,9 +238,29 @@ export default function VolumeForm({
     onSpectrumChange && onSpectrumChange(spectrumData);
   };
 
-  const handleSpectrumSaveAs = (spectrumData) => {
-    // In real app, this would save to database
- handleSpectrumValidate(spectrumData);
+  const handleSpectrumSaveAs = async (spectrumData) => {
+    try {
+      const spectrumPayload = {
+        name: spectrumData.name,
+        type: spectrumData.type || 'line',
+        multiplier: parseFloat(spectrumData.multiplier) || 1.0,
+        lines: spectrumData.lines || [],
+        isotopes: spectrumData.isotopes || []
+      };
+      
+      const savedSpectrum = await apiService.createSpectrum(projectId, spectrumPayload);
+      
+      // Notify parent about new spectrum
+      if (onSpectrumCreated) {
+        onSpectrumCreated(savedSpectrum);
+      }
+      
+      // Use the saved spectrum
+      handleSpectrumValidate(savedSpectrum);
+    } catch (error) {
+      console.error('Error saving spectrum:', error);
+      alert('Error saving spectrum. Please try again.');
+    }
   };
 
   const handleSpectrumSelect = (spectrumName) => {

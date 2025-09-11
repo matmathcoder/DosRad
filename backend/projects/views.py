@@ -432,6 +432,27 @@ class SensorDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Sensor.objects.filter(project=project)
 
 
+@api_view(['PATCH'])
+@permission_classes([permissions.IsAuthenticated])
+def update_sensor_name(request, project_id, sensor_id):
+    """Update sensor name"""
+    try:
+        project = get_object_or_404(Project, id=project_id, user=request.user)
+        sensor = get_object_or_404(Sensor, id=sensor_id, project=project)
+        
+        new_name = request.data.get('name')
+        if not new_name:
+            return Response({'error': 'Name is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        sensor.name = new_name
+        sensor.save()
+        
+        return Response({'id': sensor.id, 'name': sensor.name}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 # Compound Object Views
 
 class CompoundObjectListView(generics.ListCreateAPIView):

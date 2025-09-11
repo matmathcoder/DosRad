@@ -47,7 +47,8 @@ export default function Navigation({
   // Creation panel props
   onShowCompositionPanel,
   existingCompositions = [],
-  existingSensors = []
+  existingSensors = [],
+  setCurrentProjectId
 }) {
   // Use custom hooks for state management and handlers
   const state = useNavigationState();
@@ -125,6 +126,7 @@ export default function Navigation({
           onShowSignup={() => state.setShowSignup(true)}
           onLogout={handlers.handleLogout}
           ProfileComponent={Profile}
+          setCurrentProjectId={setCurrentProjectId}
         />
       </div>
       

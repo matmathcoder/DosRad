@@ -10,11 +10,12 @@ export { default as HistoryManager } from './HistoryManager';
 export { default as PersistenceManager } from './PersistenceManager';
 export { default as ViewManager } from './ViewManager';
 export { default as EventHandler } from './EventHandler';
+export { LinksManager } from './LinksManager';
 
 // Module Responsibilities:
 // - SceneManager: Core scene setup, lighting, and initialization
 // - CameraController: Camera management, animations, and view controls
-// - GeometryManager: Geometry creation, manipulation, and CSG operations
+// - GeometryManager: Geometry creation and manipulation
 // - CollisionSystem: Collision detection and particle effects
 // - HistoryManager: Undo/redo functionality
 // - PersistenceManager: Scene saving and loading to/from localStorage

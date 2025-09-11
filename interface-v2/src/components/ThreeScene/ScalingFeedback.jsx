@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import * as THREE from 'three';
 
-export default function ScalingFeedback({ isVisible, object, feedbackType = 'scaling', position = { x: 10, y: 10 } }) {
+export default function ScalingFeedback({ isVisible, object, feedbackType = 'scaling', position = { x: 10, y: 10 }, onRotationChange }) {
   const [forceUpdate, setForceUpdate] = useState(0);
+  const [rotationInputs, setRotationInputs] = useState({ x: 0, y: 0, z: 0 });
+  const [isEditingRotation, setIsEditingRotation] = useState(false);
   
   // Force re-render when object changes - must be before early return
   useEffect(() => {
@@ -14,6 +16,58 @@ export default function ScalingFeedback({ isVisible, object, feedbackType = 'sca
       return () => clearInterval(interval);
     }
   }, [object, isVisible]);
+
+  // Update rotation inputs when object rotation changes (only when not editing)
+  useEffect(() => {
+    if (object && !isEditingRotation) {
+      const rotation = getRotation();
+      setRotationInputs({
+        x: Math.round(rotation.x * 10) / 10, // Round to 1 decimal place
+        y: Math.round(rotation.y * 10) / 10,
+        z: Math.round(rotation.z * 10) / 10
+      });
+    }
+  }, [object, isVisible, isEditingRotation]);
+
+  // Handle rotation input changes
+  const handleRotationInputChange = (axis, value) => {
+    const numValue = parseFloat(value) || 0;
+    setRotationInputs(prev => ({
+      ...prev,
+      [axis]: numValue
+    }));
+  };
+
+  // Handle rotation input submission
+  const handleRotationSubmit = (axis) => {
+    if (!object || !onRotationChange) return;
+    
+    const degrees = rotationInputs[axis];
+    const radians = (degrees * Math.PI) / 180;
+    
+    // Apply rotation to the object
+    const newRotation = { ...object.rotation };
+    newRotation[axis] = radians;
+    
+    onRotationChange(newRotation);
+    setIsEditingRotation(false);
+  };
+
+  // Handle rotation input key press
+  const handleRotationKeyPress = (e, axis) => {
+    if (e.key === 'Enter') {
+      handleRotationSubmit(axis);
+    } else if (e.key === 'Escape') {
+      // Reset to current object rotation
+      const rotation = getRotation();
+      setRotationInputs({
+        x: Math.round(rotation.x * 10) / 10,
+        y: Math.round(rotation.y * 10) / 10,
+        z: Math.round(rotation.z * 10) / 10
+      });
+      setIsEditingRotation(false);
+    }
+  };
   
   if (!isVisible || !object) return null;
 
@@ -22,7 +76,7 @@ export default function ScalingFeedback({ isVisible, object, feedbackType = 'sca
 
   // Calculate dynamic position to avoid overlaps with other UI elements
   const getOptimalPosition = () => {
-    const panelWidth = 250;
+    const panelWidth = 280;
     const panelHeight = 120;
     const margin = 20;
     
@@ -188,7 +242,7 @@ export default function ScalingFeedback({ isVisible, object, feedbackType = 'sca
         fontFamily: 'monospace',
         fontSize: '13px',
         zIndex: 1000,
-        minWidth: '200px'
+        minWidth: '280px'
       }}
     >
       {/* Title Bar */}
@@ -206,16 +260,53 @@ export default function ScalingFeedback({ isVisible, object, feedbackType = 'sca
       
       {/* Feedback Data */}
       <div className="p-3 space-y-2">
-        {Object.entries(feedbackLabels).map(([label, value]) => (
-          <div key={label} className="flex justify-between items-center">
-            <span className="text-neutral-300 text-xs font-medium">
-              {label.charAt(0).toUpperCase() + label.slice(1)}:
-            </span>
-            <span className="text-white text-sm font-mono bg-neutral-800 px-3 py-1 rounded border border-neutral-600">
-              {value}
-            </span>
-          </div>
-        ))}
+        {Object.entries(feedbackLabels).map(([label, value]) => {
+          // Check if this is a rotation field that should be editable
+          const isRotationField = (feedbackType === 'rotation' || feedbackType === 'all') && 
+                                 (label.toLowerCase().includes('rotation') || label.toLowerCase() === 'x' || label.toLowerCase() === 'y' || label.toLowerCase() === 'z');
+          
+          if (isRotationField && (feedbackType === 'rotation' || feedbackType === 'all')) {
+            const axis = label.toLowerCase().replace('rotation', '').replace('x', 'x').replace('y', 'y').replace('z', 'z');
+            const actualAxis = axis || label.toLowerCase();
+            
+            return (
+              <div key={label} className="flex justify-between items-center">
+                <span className="text-neutral-300 text-xs font-medium">
+                  {label.charAt(0).toUpperCase() + label.slice(1)}:
+                </span>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    value={rotationInputs[actualAxis] || 0}
+                    onChange={(e) => {
+                      setIsEditingRotation(true);
+                      handleRotationInputChange(actualAxis, e.target.value);
+                    }}
+                    onKeyPress={(e) => handleRotationKeyPress(e, actualAxis)}
+                    onBlur={() => handleRotationSubmit(actualAxis)}
+                    className="text-white text-sm font-mono bg-neutral-800 px-2 py-1 rounded border border-neutral-600 w-20 text-center focus:border-blue-400 focus:outline-none"
+                    step="0.1"
+                    min="-360"
+                    max="360"
+                  />
+                  <span className="text-neutral-400 text-xs">°</span>
+                </div>
+              </div>
+            );
+          }
+          
+          // Regular display for non-rotation fields
+          return (
+            <div key={label} className="flex justify-between items-center">
+              <span className="text-neutral-300 text-xs font-medium">
+                {label.charAt(0).toUpperCase() + label.slice(1)}:
+              </span>
+              <span className="text-white text-sm font-mono bg-neutral-800 px-3 py-1 rounded border border-neutral-600 min-w-[80px] text-center">
+                {value}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
