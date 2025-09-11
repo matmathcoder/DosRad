@@ -32,6 +32,9 @@ export default function useNavigationHandlers({
   onShowSourcesInspector,
   onShowSensorsInspector,
   onShowCompositionPanel,
+  onShowGenerateScenePanel,
+  onShowComputationPanel,
+  onShowMeshPanel,
   state,
   actions
 }) {
@@ -247,6 +250,69 @@ export default function useNavigationHandlers({
       case 'Export (OBJ)':
         handleExportOBJ();
         break;
+      case 'New Volume':
+        if (onShowVolumeForm) {
+          onShowVolumeForm();
+        }
+        break;
+      case 'Select Volume':
+        // Handle volume selection logic
+        console.log('Select Volume clicked');
+        break;
+      case 'Remove':
+        // Handle remove logic
+        console.log('Remove clicked');
+        break;
+      case 'Compound Volume':
+        if (onShowCompoundVolume) {
+          onShowCompoundVolume();
+        }
+        break;
+      case 'Sensor':
+        if (onShowSensorPanel) {
+          onShowSensorPanel();
+        }
+        break;
+      case 'Geometry':
+        if (onShowGeometryPanel) {
+          onShowGeometryPanel();
+        }
+        break;
+      case 'Compositions':
+        if (onShowCompositionsInspector) {
+          onShowCompositionsInspector();
+        }
+        break;
+      case 'Sources':
+        if (onShowSourcesInspector) {
+          onShowSourcesInspector();
+        }
+        break;
+      case 'Generate Scene...':
+        if (onShowGenerateScenePanel) {
+          onShowGenerateScenePanel();
+        }
+        break;
+      case 'Start Computation':
+        if (onShowComputationPanel) {
+          onShowComputationPanel();
+        }
+        break;
+      case 'Physics Simulation':
+        if (onShowPhysicsPanel) {
+          onShowPhysicsPanel();
+        }
+        break;
+      case 'Decay Simulator':
+        if (onShowDecaySimulator) {
+          onShowDecaySimulator();
+        }
+        break;
+      case 'Configure Mesh...':
+        if (onShowMeshPanel) {
+          onShowMeshPanel();
+        }
+        break;
       default:
         // Handle View menu actions
         if (onViewMenuAction) {
@@ -265,6 +331,51 @@ export default function useNavigationHandlers({
               break;
             case 'Normal View':
               onViewMenuAction('normalView');
+              break;
+            case 'Contextual Help':
+              if (onToggleComponentVisibility) {
+                onToggleComponentVisibility('contextualHelp');
+              }
+              break;
+            case 'Help Overlay':
+              if (onToggleComponentVisibility) {
+                onToggleComponentVisibility('helpOverlay');
+              }
+              break;
+            case 'Geometry Selector':
+              if (onToggleComponentVisibility) {
+                onToggleComponentVisibility('geometrySelector');
+              }
+              break;
+            case 'Volume Form':
+              if (onToggleComponentVisibility) {
+                onToggleComponentVisibility('volumeForm');
+              }
+              break;
+            case 'Sensor Panel':
+              if (onToggleComponentVisibility) {
+                onToggleComponentVisibility('sensorPanel');
+              }
+              break;
+            case 'Compound Volume':
+              if (onToggleComponentVisibility) {
+                onToggleComponentVisibility('compoundVolume');
+              }
+              break;
+            case 'Directory':
+              if (onToggleComponentVisibility) {
+                onToggleComponentVisibility('directory');
+              }
+              break;
+            case 'Rotation Sliders':
+              if (onToggleComponentVisibility) {
+                onToggleComponentVisibility('rotationSliders');
+              }
+              break;
+            case 'Debug Panel':
+              if (onToggleComponentVisibility) {
+                onToggleComponentVisibility('debugPanel');
+              }
               break;
           }
         }

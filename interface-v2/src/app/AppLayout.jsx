@@ -110,6 +110,9 @@ export default function AppLayout({
             onShowCompositionsInspector={() => state.setShowCompositionsInspector(true)}
             onShowSourcesInspector={() => state.setShowSourcesInspector(true)}
             onShowSensorsInspector={() => state.setShowSensorsInspector(true)}
+            onShowGenerateScenePanel={() => state.setShowGenerateScenePanel(true)}
+            onShowComputationPanel={() => state.setShowComputationPanel(true)}
+            onShowMeshPanel={() => state.setShowMeshPanel(true)}
             compositions={state.existingCompositions}
             sources={[]}
             sensors={state.existingSensors}
